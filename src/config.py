@@ -1,4 +1,4 @@
-# src configuration and parameters
+# Candidate weights to check in order (custom weights first, fallback to standard YOLOv8)
 MODEL_CANDIDATES = ['best_tennis.pt', 'tennis_ball.pt', 'yolov8n.pt']
 
 VIDEO_PATH = 'input.mp4'
@@ -21,6 +21,10 @@ COURT_ROI_NORMALIZED = [
     (0.02, 0.98),  # Bottom-left
 ]
 
-# Interpolation & Trajectory Settings
-MAX_INTERPOLATION_GAP = 15     # Max consecutive missing frames to fill with linear interpolation
-TRAJECTORY_MAX_POINTS = 25     # Number of historical points to display for the ball trail
+# Tracking Safety Checks & Limits
+MAX_MISSING_FRAMES = 7          # Max consecutive frames without detection before resetting track
+MAX_BALL_SPEED_PIXELS = 180     # Max plausible displacement in pixels between adjacent frames
+SCENE_CUT_THRESHOLD = 0.60      # Color histogram correlation threshold below which a scene cut is triggered
+
+# Visualization Settings
+TRAJECTORY_MAX_POINTS = 25      # Number of historical points to display for the ball trail

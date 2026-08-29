@@ -1,3 +1,4 @@
+import math
 import os
 import cv2
 from ultralytics import YOLO
@@ -6,9 +7,12 @@ from src.config import (
     BALL_CONF_THRESHOLD,
     PERSON_CONF_THRESHOLD,
     COCO_BALL_CLASS_ID,
-    COCO_PERSON_CLASS_ID
+    COCO_PERSON_CLASS_ID,
+    MAX_MISSING_FRAMES,
+    MAX_BALL_SPEED_PIXELS
 )
 from src.utils.roi_utils import is_inside_roi
+from src.utils.scene_utils import detect_scene_cut
 
 
 def get_model_path() -> str:
@@ -27,25 +31,43 @@ def load_detector() -> YOLO:
     return YOLO(model_path)
 
 
+def calculate_distance(p1, p2) -> float:
+    """Calculates Euclidean distance between two 2D points."""
+    return math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2)
+
+
 def extract_detections(cap: cv2.VideoCapture, model: YOLO, roi_polygon_pixels) -> list:
     """
-    Pass 1: Runs YOLOv8 inference across all video frames to extract player and ball positions.
+    Pass 1: Runs YOLOv8 inference across all video frames with velocity filtering,
+    strict ROI enforcement, and scene cut detection.
     """
-    print("\n--- Pass 1: Extracting Detections with Tuned Confidence & ROI ---")
+    print("\n--- Pass 1: Extracting Detections with Safety Filters & Scene Cut Tracking ---")
     frame_detections = []
     frame_idx = 0
     raw_ball_detections_count = 0
+    scene_cuts_count = 0
+
+    prev_hist = None
+    last_ball_pos = None
+    last_ball_frame = -1
 
     while cap.isOpened():
         success, frame = cap.read()
         if not success:
             break
 
-        # Run inference targeting both person and sports ball with low baseline conf
+        # 1. Scene Cut Detection
+        is_cut, curr_hist = detect_scene_cut(prev_hist, frame)
+        prev_hist = curr_hist
+        if is_cut:
+            scene_cuts_count += 1
+            last_ball_pos = None
+            last_ball_frame = -1
+
+        # 2. Run YOLO Inference
         results = model.predict(frame, conf=min(BALL_CONF_THRESHOLD, PERSON_CONF_THRESHOLD), verbose=False)
-        
-        detected_ball = None
-        best_ball_conf = 0.0
+
+        candidate_balls = []
         detected_players = []
 
         if results and len(results) > 0:
@@ -56,36 +78,64 @@ def extract_detections(cap: cv2.VideoCapture, model: YOLO, roi_polygon_pixels) -
                 xyxy = box.xyxy[0].cpu().numpy()
                 x1, y1, x2, y2 = xyxy
 
-                # Ball detection
+                # Ball detection candidate
                 if cls_id == COCO_BALL_CLASS_ID and conf >= BALL_CONF_THRESHOLD:
                     center_x = (x1 + x2) / 2.0
                     center_y = (y1 + y2) / 2.0
 
-                    # Apply ROI filtering on ball center
+                    # Strict ROI check on candidate center
                     if is_inside_roi((center_x, center_y), roi_polygon_pixels):
-                        # Pick highest confidence ball candidate in case of duplicates
-                        if conf > best_ball_conf:
-                            best_ball_conf = conf
-                            detected_ball = (center_x, center_y)
+                        candidate_balls.append({
+                            'pos': (center_x, center_y),
+                            'conf': conf
+                        })
 
                 # Player detection
                 elif cls_id == COCO_PERSON_CLASS_ID and conf >= PERSON_CONF_THRESHOLD:
-                    # Filter players based on bottom-center feet position
                     feet_pos = ((x1 + x2) / 2.0, y2)
                     if is_inside_roi(feet_pos, roi_polygon_pixels):
                         detected_players.append((int(x1), int(y1), int(x2), int(y2), conf))
 
-        if detected_ball is not None:
+        # 3. Velocity / Physical Limit Filtering for Ball
+        selected_ball = None
+        if candidate_balls:
+            if last_ball_pos is not None:
+                dt = frame_idx - last_ball_frame
+                if dt <= MAX_MISSING_FRAMES:
+                    max_allowed_dist = dt * MAX_BALL_SPEED_PIXELS
+                    # Filter candidates within physical speed limit
+                    valid_candidates = [
+                        c for c in candidate_balls 
+                        if calculate_distance(c['pos'], last_ball_pos) <= max_allowed_dist
+                    ]
+                    if valid_candidates:
+                        # Choose closest to last position among valid candidates
+                        valid_candidates.sort(key=lambda c: calculate_distance(c['pos'], last_ball_pos))
+                        selected_ball = valid_candidates[0]['pos']
+                    # If no candidates pass distance filter, reject as false positives
+                else:
+                    # Gap too large: reset track and start fresh track with highest confidence candidate
+                    candidate_balls.sort(key=lambda c: c['conf'], reverse=True)
+                    selected_ball = candidate_balls[0]['pos']
+            else:
+                # No active track: start new track with highest confidence candidate
+                candidate_balls.sort(key=lambda c: c['conf'], reverse=True)
+                selected_ball = candidate_balls[0]['pos']
+
+        if selected_ball is not None:
             raw_ball_detections_count += 1
+            last_ball_pos = selected_ball
+            last_ball_frame = frame_idx
 
         frame_detections.append({
-            'ball': detected_ball,
-            'players': detected_players
+            'ball': selected_ball,
+            'players': detected_players,
+            'scene_cut': is_cut
         })
 
         frame_idx += 1
         if frame_idx % 60 == 0:
-            print(f"Pass 1: Analyzed {frame_idx} frames... (Raw ball detected in {raw_ball_detections_count} frames)")
+            print(f"Pass 1: Analyzed {frame_idx} frames... (Balls: {raw_ball_detections_count}, Scene Cuts: {scene_cuts_count})")
 
-    print(f"Pass 1 Complete: Total Frames={frame_idx}, Raw Ball Detections={raw_ball_detections_count}")
+    print(f"Pass 1 Complete: Total Frames={frame_idx}, Raw Balls={raw_ball_detections_count}, Scene Cuts={scene_cuts_count}")
     return frame_detections
