@@ -100,10 +100,30 @@ With this update, **Phase 1 (Foundation & Accurate Multi-Object Detection)** is 
 
 ---
 
-## 📅 Entry 6: Roadmap to Phase 2 (Court Keypoints & Mini-Court Radar)
-*Date: Upcoming Milestone*
+## 📅 Entry 6: Phase 2 Breakthrough – Homography & The 2D Mini-Court Radar
+*Date: Phase 2 Implementation*
 
-The next stage of development will implement:
-- **PyTorch ResNet Keypoint Detector**: Predicting the 14 standard court line intersections.
-- **Homography Matrix Engine**: Mapping pixel coordinates to metric court units ($23.77\text{m} \times 10.97\text{m}$).
-- **2D Mini-Court Radar**: Live top-down bird's-eye overlay tracking player positions and ball bounces in real-time.
+### The Challenge: From Perspective Distortion to Metric Ground Truth
+In broadcast tennis, standard baseline cameras view the court at an oblique angle ($\sim 25^\circ - 35^\circ$). This perspective distortion causes near-court objects to appear disproportionately large compared to far-court objects, making direct velocity or distance calculations in screen pixels inaccurate.
+
+### The Solution: Perspective Homography Transformation
+1. **14 Court Keypoints**: Extracted the standard 14 court line intersections (corners, service lines, net junctions) using `src/court_detector/court_line_detector.py`.
+2. **Homography Matrix ($H$)**: Using `cv2.findHomography()`, we computed the $3 \times 3$ projective transformation matrix mapping camera pixels $(u, v)$ to top-down 2D canvas coordinates $(x', y')$ and metric real-world coordinates ($23.77\text{m} \times 10.97\text{m}$).
+3. **2D Mini-Court Bird's-Eye Radar**: Built `src/mini_court/mini_court.py` to draw a live top-down court graphic:
+   - **Player 1 Radar Dot**: Real-time position of Near Court player (Electric Blue).
+   - **Player 2 Radar Dot**: Real-time position of Far Court player (Deep Orange).
+   - **Ball Trajectory**: Real-time 2D shot path and bounce trail (Neon Yellow).
+4. **Broadcast HUD Overlay**: Integrated the mini-court radar seamlessly onto the top-right corner of the video with subtle alpha blending and contrast borders.
+
+### Result
+**Phase 2 is now complete!** We now have a true dual-view visualizer: camera broadcast with bounding boxes + an interactive top-down 2D mini-court radar tracking game action simultaneously.
+
+---
+
+## 📅 Entry 7: Looking Ahead to Phase 3 (Shot Analytics & Ball Velocity)
+*Date: Next Milestone*
+
+With geometric homography now established, Phase 3 will unlock real physical metrics:
+- **Ball Velocity ($\text{km/h}$)**: Computing true physical speed using delta meters over frame rate.
+- **Bounce & In/Out Calling**: Pinpointing ground contact coordinates against line boundaries.
+- **Shot & Rally Counters**: Automatically tracking strokes per rally.

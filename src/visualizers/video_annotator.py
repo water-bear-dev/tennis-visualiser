@@ -1,11 +1,13 @@
 from collections import deque
 import cv2
+import numpy as np
 from src.config import (
     OUTPUT_PATH,
     ENABLE_ROI_FILTER,
     TRAJECTORY_MAX_POINTS,
     MAX_MISSING_FRAMES
 )
+from src.mini_court.mini_court import MiniCourt
 
 
 def draw_player_box(frame, player_data, label: str, color: tuple):
@@ -25,13 +27,36 @@ def draw_player_box(frame, player_data, label: str, color: tuple):
     cv2.putText(frame, text, (x1 + 5, badge_y2 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2, lineType=cv2.LINE_AA)
 
 
+def overlay_radar_on_frame(frame: np.ndarray, radar_img: np.ndarray, offset_x: int = 30, offset_y: int = 30):
+    """Overlays the 2D Mini-Court radar with a semi-transparent border on the top-right corner."""
+    rh, rw = radar_img.shape[:2]
+    fh, fw = frame.shape[:2]
+
+    # Position in top-right
+    x1 = fw - rw - offset_x
+    y1 = offset_y
+    x2 = x1 + rw
+    y2 = y1 + rh
+
+    if x1 < 0 or y1 < 0 or x2 > fw or y2 > fh:
+        return
+
+    # Draw sleek shadow / glassmorphic border
+    cv2.rectangle(frame, (x1 - 3, y1 - 3), (x2 + 3, y2 + 3), (20, 20, 20), 2)
+    
+    # Alpha blend radar slightly (90% opaque)
+    roi = frame[y1:y2, x1:x2]
+    blended = cv2.addWeighted(radar_img, 0.92, roi, 0.08, 0)
+    frame[y1:y2, x1:x2] = blended
+
+
 def render_annotated_video(cap: cv2.VideoCapture, frame_detections: list, interpolated_balls: list, 
-                           roi_polygon_pixels, width: int, height: int, fps: int):
+                           roi_polygon_pixels, mini_court: MiniCourt, width: int, height: int, fps: int):
     """
     Pass 2: Re-reads the video and renders court ROI, persistent Player 1 & Player 2 boxes,
-    ball markers, and trajectory trails.
+    ball markers, trajectory trails, and the 2D Mini-Court radar.
     """
-    print("\n--- Pass 2: Rendering Annotations & Ball Trajectory Trail ---")
+    print("\n--- Pass 2: Rendering Annotations, Trajectory & 2D Mini-Court Radar ---")
     
     # Reset video to the beginning
     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
@@ -65,8 +90,10 @@ def render_annotated_video(cap: cv2.VideoCapture, frame_detections: list, interp
 
         # 3. Draw Persistent Players (Player 1 & Player 2)
         players = detection_data.get('players', {})
-        draw_player_box(frame, players.get('player_1'), "Player 1", COLOR_P1)
-        draw_player_box(frame, players.get('player_2'), "Player 2", COLOR_P2)
+        p1_data = players.get('player_1')
+        p2_data = players.get('player_2')
+        draw_player_box(frame, p1_data, "Player 1", COLOR_P1)
+        draw_player_box(frame, p2_data, "Player 2", COLOR_P2)
 
         # 4. Draw Ball & Trajectory
         ball_pos = interpolated_balls[frame_idx]
@@ -96,6 +123,18 @@ def render_annotated_video(cap: cv2.VideoCapture, frame_detections: list, interp
             missing_counter += 1
             if missing_counter >= MAX_MISSING_FRAMES:
                 trajectory.clear()
+
+        # 5. Render 2D Mini-Court Radar Overlay
+        p1_feet = ((p1_data[0] + p1_data[2]) / 2.0, p1_data[3]) if p1_data else None
+        p2_feet = ((p2_data[0] + p2_data[2]) / 2.0, p2_data[3]) if p2_data else None
+
+        radar_img = mini_court.render_radar(
+            p1_pos=p1_feet,
+            p2_pos=p2_feet,
+            ball_pos=ball_pos,
+            ball_trajectory=list(trajectory)
+        )
+        overlay_radar_on_frame(frame, radar_img, offset_x=30, offset_y=30)
 
         # Write annotated frame
         out.write(frame)

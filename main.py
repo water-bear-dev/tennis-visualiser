@@ -4,6 +4,8 @@ from src.detectors.yolo_detector import load_detector, extract_detections
 from src.trackers.ball_interpolator import interpolate_ball_positions
 from src.visualizers.video_annotator import render_annotated_video
 from src.utils.roi_utils import get_roi_polygon_pixels
+from src.court_detector.court_line_detector import CourtLineDetector
+from src.mini_court.mini_court import MiniCourt
 
 
 def main():
@@ -20,20 +22,36 @@ def main():
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = int(cap.get(cv2.CAP_PROP_FPS))
 
-    # 3. Calculate pixel-level ROI bounds
+    # 3. Court Keypoints & Geometry Setup (Phase 2)
+    court_detector = CourtLineDetector()
+    success, sample_frame = cap.read()
+    if not success:
+        print("Error: Could not read sample frame from video.")
+        return
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
+    print("Computing Court Geometry & Keypoints...")
+    court_keypoints = court_detector.detect_keypoints(sample_frame, width, height)
+    
+    # Initialize 2D Mini-Court and calculate Homography
+    mini_court = MiniCourt(canvas_width=220, canvas_height=420, margin=16)
+    mini_court.compute_homography(court_keypoints)
+    print("Homography Matrix successfully computed!")
+
+    # 4. Calculate pixel-level ROI bounds
     roi_polygon_pixels = get_roi_polygon_pixels(width, height)
 
-    # 4. Pipeline Execution
-    # Pass 1: Extract detections
+    # 5. Pipeline Execution
+    # Pass 1: Extract detections & persistent player tracks
     frame_detections = extract_detections(cap, model, roi_polygon_pixels)
     
-    # Tracker: Interpolate missing ball frames
+    # Tracker: Interpolate missing ball frames with safety guardrails
     interpolated_balls = interpolate_ball_positions(frame_detections)
     
-    # Pass 2: Render visualizations & trajectory trail
-    render_annotated_video(cap, frame_detections, interpolated_balls, roi_polygon_pixels, width, height, fps)
+    # Pass 2: Render visualizations, trajectory trails, and 2D Mini-Court radar
+    render_annotated_video(cap, frame_detections, interpolated_balls, roi_polygon_pixels, mini_court, width, height, fps)
 
-    # 5. Cleanup
+    # 6. Cleanup
     cap.release()
     cv2.destroyAllWindows()
 
