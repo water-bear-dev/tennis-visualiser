@@ -13,6 +13,7 @@ from src.config import (
 )
 from src.utils.roi_utils import is_inside_roi
 from src.utils.scene_utils import detect_scene_cut
+from src.trackers.player_tracker import PlayerTracker
 
 
 def get_model_path() -> str:
@@ -39,14 +40,15 @@ def calculate_distance(p1, p2) -> float:
 def extract_detections(cap: cv2.VideoCapture, model: YOLO, roi_polygon_pixels) -> list:
     """
     Pass 1: Runs YOLOv8 inference across all video frames with velocity filtering,
-    strict ROI enforcement, and scene cut detection.
+    strict ROI enforcement, scene cut detection, and persistent 2-player tracking.
     """
-    print("\n--- Pass 1: Extracting Detections with Safety Filters & Scene Cut Tracking ---")
+    print("\n--- Pass 1: Extracting Detections with 2-Player Tracking & Safety Filters ---")
     frame_detections = []
     frame_idx = 0
     raw_ball_detections_count = 0
     scene_cuts_count = 0
 
+    player_tracker = PlayerTracker()
     prev_hist = None
     last_ball_pos = None
     last_ball_frame = -1
@@ -56,6 +58,8 @@ def extract_detections(cap: cv2.VideoCapture, model: YOLO, roi_polygon_pixels) -
         if not success:
             break
 
+        frame_height, frame_width = frame.shape[:2]
+
         # 1. Scene Cut Detection
         is_cut, curr_hist = detect_scene_cut(prev_hist, frame)
         prev_hist = curr_hist
@@ -63,12 +67,13 @@ def extract_detections(cap: cv2.VideoCapture, model: YOLO, roi_polygon_pixels) -
             scene_cuts_count += 1
             last_ball_pos = None
             last_ball_frame = -1
+            player_tracker.reset()
 
         # 2. Run YOLO Inference
         results = model.predict(frame, conf=min(BALL_CONF_THRESHOLD, PERSON_CONF_THRESHOLD), verbose=False)
 
         candidate_balls = []
-        detected_players = []
+        raw_detected_players = []
 
         if results and len(results) > 0:
             boxes = results[0].boxes
@@ -90,13 +95,16 @@ def extract_detections(cap: cv2.VideoCapture, model: YOLO, roi_polygon_pixels) -
                             'conf': conf
                         })
 
-                # Player detection
+                # Player detection candidate
                 elif cls_id == COCO_PERSON_CLASS_ID and conf >= PERSON_CONF_THRESHOLD:
                     feet_pos = ((x1 + x2) / 2.0, y2)
                     if is_inside_roi(feet_pos, roi_polygon_pixels):
-                        detected_players.append((int(x1), int(y1), int(x2), int(y2), conf))
+                        raw_detected_players.append((int(x1), int(y1), int(x2), int(y2), conf))
 
-        # 3. Velocity / Physical Limit Filtering for Ball
+        # 3. Persistent 2-Player Assignment
+        tracked_players = player_tracker.track_players(raw_detected_players, frame_height)
+
+        # 4. Velocity / Physical Limit Filtering for Ball
         selected_ball = None
         if candidate_balls:
             if last_ball_pos is not None:
@@ -112,7 +120,6 @@ def extract_detections(cap: cv2.VideoCapture, model: YOLO, roi_polygon_pixels) -
                         # Choose closest to last position among valid candidates
                         valid_candidates.sort(key=lambda c: calculate_distance(c['pos'], last_ball_pos))
                         selected_ball = valid_candidates[0]['pos']
-                    # If no candidates pass distance filter, reject as false positives
                 else:
                     # Gap too large: reset track and start fresh track with highest confidence candidate
                     candidate_balls.sort(key=lambda c: c['conf'], reverse=True)
@@ -129,7 +136,7 @@ def extract_detections(cap: cv2.VideoCapture, model: YOLO, roi_polygon_pixels) -
 
         frame_detections.append({
             'ball': selected_ball,
-            'players': detected_players,
+            'players': tracked_players,
             'scene_cut': is_cut
         })
 

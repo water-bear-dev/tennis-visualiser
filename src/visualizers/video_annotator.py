@@ -8,11 +8,28 @@ from src.config import (
 )
 
 
+def draw_player_box(frame, player_data, label: str, color: tuple):
+    """Draws a stylish bounding box and label badge for a player."""
+    if player_data is None:
+        return
+    x1, y1, x2, y2, conf = player_data
+    # Main rectangle
+    cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2, lineType=cv2.LINE_AA)
+    
+    # Text badge with background pill
+    text = f"{label} ({conf:.2f})"
+    (tw, th), baseline = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 2)
+    badge_y1 = max(y1 - th - 10, 5)
+    badge_y2 = badge_y1 + th + 6
+    cv2.rectangle(frame, (x1, badge_y1), (x1 + tw + 10, badge_y2), color, -1)
+    cv2.putText(frame, text, (x1 + 5, badge_y2 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2, lineType=cv2.LINE_AA)
+
+
 def render_annotated_video(cap: cv2.VideoCapture, frame_detections: list, interpolated_balls: list, 
                            roi_polygon_pixels, width: int, height: int, fps: int):
     """
-    Pass 2: Re-reads the video and renders court ROI, player bounding boxes, ball markers, and trajectory trails.
-    Clears tracking queues on scene cuts and large tracking gaps.
+    Pass 2: Re-reads the video and renders court ROI, persistent Player 1 & Player 2 boxes,
+    ball markers, and trajectory trails.
     """
     print("\n--- Pass 2: Rendering Annotations & Ball Trajectory Trail ---")
     
@@ -25,6 +42,10 @@ def render_annotated_video(cap: cv2.VideoCapture, frame_detections: list, interp
     trajectory = deque(maxlen=TRAJECTORY_MAX_POINTS)
     frame_idx = 0
     missing_counter = 0
+
+    # Colors (BGR)
+    COLOR_P1 = (255, 160, 0)   # Blue/Cyan
+    COLOR_P2 = (0, 140, 255)   # Deep Orange
 
     while cap.isOpened():
         success, frame = cap.read()
@@ -42,11 +63,10 @@ def render_annotated_video(cap: cv2.VideoCapture, frame_detections: list, interp
         if ENABLE_ROI_FILTER and roi_polygon_pixels is not None:
             cv2.polylines(frame, [roi_polygon_pixels], isClosed=True, color=(100, 255, 100), thickness=1, lineType=cv2.LINE_AA)
 
-        # 3. Draw Players
-        for x1, y1, x2, y2, conf in detection_data['players']:
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 120, 0), 2)
-            label = f"Player {conf:.2f}"
-            cv2.putText(frame, label, (x1, max(y1 - 8, 15)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 120, 0), 2)
+        # 3. Draw Persistent Players (Player 1 & Player 2)
+        players = detection_data.get('players', {})
+        draw_player_box(frame, players.get('player_1'), "Player 1", COLOR_P1)
+        draw_player_box(frame, players.get('player_2'), "Player 2", COLOR_P2)
 
         # 4. Draw Ball & Trajectory
         ball_pos = interpolated_balls[frame_idx]

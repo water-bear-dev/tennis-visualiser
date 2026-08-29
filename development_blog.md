@@ -82,18 +82,28 @@ In benchmark tests across 2,687 frames of broadcast footage, the system detected
 
 ---
 
-## 📅 Entry 5: Phase 1 Deep-Dive & What Lies Ahead
-*Date: Current Phase*
+## 📅 Entry 5: Completing Phase 1 – Persistent 2-Player Re-ID & Spatial Net Split
+*Date: Phase 1 Finalization*
 
-### Phase 1 Focus (Foundation & Multi-Object Tracking)
-- [x] Initial YOLOv8 integration & threshold tuning
-- [x] Two-pass processing architecture
-- [x] Robust interpolation with 4 tracking safety guardrails
-- [x] Modular architecture refactoring
-- [ ] **Next up**: Integration of fine-tuned tennis ball weights dataset (`tennis_ball_detector.pt`) to elevate raw ball detection rate from ~5% to >80%.
-- [ ] **Next up**: Player Re-ID (ByteTrack/SORT) to isolate and persistently track Player 1 and Player 2 across rallies while discarding background people.
+### The Problem
+While the ball was now smoothly tracked, every person standing inside the court area (including line referees near the sidelines and ball kids) was drawn with a generic player box, causing visual clutter and identity confusion.
 
-### Looking Ahead to Phase 2
-The next frontier is **Court Keypoint Detection (CNN)** and **Homography Mapping**. Once we detect the 14 standard court corners and map them to real-world metric dimensions ($23.77\text{m} \times 10.97\text{m}$), we unlock real-world ball speeds ($\text{km/h}$), player sprint analytics, and a top-down 2D mini-court radar.
+### The Solution: `PlayerTracker`
+We engineered a dedicated spatial player tracking engine (`src/trackers/player_tracker.py`):
+1. **Court Net Division**: Partitioned candidate player detections into **Near Court** ($Y \ge Y_{\text{net}}$) and **Far Court** ($Y < Y_{\text{net}}$).
+2. **Persistent ID Assignment**:
+   - **Player 1**: Near court competitor (bottom of screen), rendered in distinct electric blue.
+   - **Player 2**: Far court competitor (top of screen), rendered in distinct deep orange.
+3. **Occlusion & Noise Filtering**: Persons outside the primary competitor zones or transient detections are automatically dropped, ensuring exactly the two active competitors are tracked with clean badge pills.
 
-Stay tuned for future updates! 🚀
+With this update, **Phase 1 (Foundation & Accurate Multi-Object Detection)** is fully completed!
+
+---
+
+## 📅 Entry 6: Roadmap to Phase 2 (Court Keypoints & Mini-Court Radar)
+*Date: Upcoming Milestone*
+
+The next stage of development will implement:
+- **PyTorch ResNet Keypoint Detector**: Predicting the 14 standard court line intersections.
+- **Homography Matrix Engine**: Mapping pixel coordinates to metric court units ($23.77\text{m} \times 10.97\text{m}$).
+- **2D Mini-Court Radar**: Live top-down bird's-eye overlay tracking player positions and ball bounces in real-time.
