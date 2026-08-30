@@ -115,15 +115,29 @@ In broadcast tennis, standard baseline cameras view the court at an oblique angl
    - **Ball Trajectory**: Real-time 2D shot path and bounce trail (Neon Yellow).
 4. **Broadcast HUD Overlay**: Integrated the mini-court radar seamlessly onto the top-right corner of the video with subtle alpha blending and contrast borders.
 
-### Result
-**Phase 2 is now complete!** We now have a true dual-view visualizer: camera broadcast with bounding boxes + an interactive top-down 2D mini-court radar tracking game action simultaneously.
-
 ---
 
-## 📅 Entry 7: Looking Ahead to Phase 3 (Shot Analytics & Ball Velocity)
-*Date: Next Milestone*
+## 📅 Entry 7: Phase 3 Breakthrough – Physics-Based Velocity, Shot Intelligence & Line Calling
+*Date: Phase 3 Implementation*
 
-With geometric homography now established, Phase 3 will unlock real physical metrics:
-- **Ball Velocity ($\text{km/h}$)**: Computing true physical speed using delta meters over frame rate.
-- **Bounce & In/Out Calling**: Pinpointing ground contact coordinates against line boundaries.
-- **Shot & Rally Counters**: Automatically tracking strokes per rally.
+### The Challenge: Calculating True Kinetic Velocity from Oblique Video
+Determining how fast a tennis ball travels in $\text{km/h}$ requires physical distance traveled in real-world metric space over exact time intervals, rather than screen pixel displacement.
+
+### The Solution: `ShotDetector` Engine
+In `src/analysis/shot_detector.py`, we implemented a physics analytics engine:
+1. **Direction Reversal & Hit Detection**:
+   - Analyzed $y$-axis velocity gradients ($\Delta v_y$) across rolling temporal windows to detect the precise frames where players strike the ball.
+   - Attributed each shot to **Player 1** or **Player 2** based on court half positioning.
+2. **Physical Velocity in $\text{km/h}$**:
+   - Projected ball positions into metric meters via homography:
+     $$v = \frac{\sqrt{\Delta X_{\text{m}}^2 + \Delta Y_{\text{m}}^2}}{\Delta t} \times 3.6 \quad (\text{km/h})$$
+3. **Automated Line Calling (`IN` vs `OUT`)**:
+   - Mapped ground contact coordinates against official ITF singles boundary lines ($[1.37\text{m}, 9.60\text{m}] \times [0.0\text{m}, 23.77\text{m}]$).
+4. **Broadcast Telemetry HUD Card**:
+   - Rendered a live match telemetry HUD in the top-left corner displaying:
+     - **Live Rally Count**: e.g., `RALLY: 5 SHOTS`
+     - **Shot Speed Ticker**: e.g., `SPEED: 148 km/h (Player 1)`
+     - **Instant Line Call Indicator**: Green `IN` or Red `OUT` badge
+
+### Result
+**Phase 3 is complete!** The tennis visualizer is now a full-featured match analytics platform with real-world ball speeds, shot counters, automated line calls, and live 2D radar tracking.

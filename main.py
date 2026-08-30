@@ -6,6 +6,7 @@ from src.visualizers.video_annotator import render_annotated_video
 from src.utils.roi_utils import get_roi_polygon_pixels
 from src.court_detector.court_line_detector import CourtLineDetector
 from src.mini_court.mini_court import MiniCourt
+from src.analysis.shot_detector import ShotDetector
 
 
 def main():
@@ -47,9 +48,23 @@ def main():
     
     # Tracker: Interpolate missing ball frames with safety guardrails
     interpolated_balls = interpolate_ball_positions(frame_detections)
+
+    # Phase 3 Analytics: Shot events, speed (km/h), bounce/calls & rally counters
+    shot_detector = ShotDetector(mini_court=mini_court, fps=fps)
+    telemetry_per_frame = shot_detector.analyze_rally_and_shots(frame_detections, interpolated_balls)
     
-    # Pass 2: Render visualizations, trajectory trails, and 2D Mini-Court radar
-    render_annotated_video(cap, frame_detections, interpolated_balls, roi_polygon_pixels, mini_court, width, height, fps)
+    # Pass 2: Render visualizations, trajectory trails, 2D Mini-Court radar & Broadcast HUD
+    render_annotated_video(
+        cap=cap,
+        frame_detections=frame_detections,
+        interpolated_balls=interpolated_balls,
+        roi_polygon_pixels=roi_polygon_pixels,
+        mini_court=mini_court,
+        telemetry_per_frame=telemetry_per_frame,
+        width=width,
+        height=height,
+        fps=fps
+    )
 
     # 6. Cleanup
     cap.release()

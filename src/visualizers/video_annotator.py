@@ -15,10 +15,8 @@ def draw_player_box(frame, player_data, label: str, color: tuple):
     if player_data is None:
         return
     x1, y1, x2, y2, conf = player_data
-    # Main rectangle
     cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2, lineType=cv2.LINE_AA)
     
-    # Text badge with background pill
     text = f"{label} ({conf:.2f})"
     (tw, th), baseline = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 2)
     badge_y1 = max(y1 - th - 10, 5)
@@ -27,12 +25,58 @@ def draw_player_box(frame, player_data, label: str, color: tuple):
     cv2.putText(frame, text, (x1 + 5, badge_y2 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2, lineType=cv2.LINE_AA)
 
 
+def draw_broadcast_hud(frame: np.ndarray, telemetry: dict, offset_x: int = 30, offset_y: int = 30):
+    """Renders a modern, broadcast-grade telemetry HUD card in the top-left corner."""
+    card_w = 320
+    card_h = 105
+    x1 = offset_x
+    y1 = offset_y
+    x2 = x1 + card_w
+    y2 = y1 + card_h
+
+    # Semi-transparent dark background card
+    sub_img = frame[y1:y2, x1:x2]
+    dark_card = np.full(sub_img.shape, (25, 22, 18), dtype=np.uint8)
+    blended = cv2.addWeighted(dark_card, 0.85, sub_img, 0.15, 0)
+    frame[y1:y2, x1:x2] = blended
+
+    # Glassmorphic border
+    cv2.rectangle(frame, (x1, y1), (x2, y2), (70, 70, 70), 1, lineType=cv2.LINE_AA)
+    # Accent top border
+    cv2.line(frame, (x1, y1), (x2, y1), (0, 255, 255), 3, lineType=cv2.LINE_AA)
+
+    # 1. Title Header
+    cv2.putText(frame, "MATCH TELEMETRY", (x1 + 14, y1 + 22), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.50, (200, 200, 200), 1, lineType=cv2.LINE_AA)
+
+    # 2. Rally Counter Badge
+    rally_count = telemetry.get('rally_count', 0)
+    rally_text = f"RALLY: {rally_count} SHOTS"
+    cv2.putText(frame, rally_text, (x1 + 14, y1 + 52), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.70, (0, 255, 255), 2, lineType=cv2.LINE_AA)
+
+    # 3. Latest Shot Speed & Attribution
+    speed = telemetry.get('shot_speed_kmh', 0.0)
+    hitter = telemetry.get('last_hitter', 'None')
+    if speed > 0:
+        speed_text = f"SPEED: {speed:.0f} km/h ({hitter})"
+        cv2.putText(frame, speed_text, (x1 + 14, y1 + 84), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, lineType=cv2.LINE_AA)
+
+    # 4. In/Out Call Badge (if recent)
+    call = telemetry.get('call')
+    if call:
+        call_color = (0, 220, 0) if call == "IN" else (0, 0, 240)
+        cv2.rectangle(frame, (x2 - 60, y1 + 12), (x2 - 14, y1 + 38), call_color, -1)
+        cv2.putText(frame, call, (x2 - 52, y1 + 31), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2, lineType=cv2.LINE_AA)
+
+
 def overlay_radar_on_frame(frame: np.ndarray, radar_img: np.ndarray, offset_x: int = 30, offset_y: int = 30):
     """Overlays the 2D Mini-Court radar with a semi-transparent border on the top-right corner."""
     rh, rw = radar_img.shape[:2]
     fh, fw = frame.shape[:2]
 
-    # Position in top-right
     x1 = fw - rw - offset_x
     y1 = offset_y
     x2 = x1 + rw
@@ -41,26 +85,22 @@ def overlay_radar_on_frame(frame: np.ndarray, radar_img: np.ndarray, offset_x: i
     if x1 < 0 or y1 < 0 or x2 > fw or y2 > fh:
         return
 
-    # Draw sleek shadow / glassmorphic border
     cv2.rectangle(frame, (x1 - 3, y1 - 3), (x2 + 3, y2 + 3), (20, 20, 20), 2)
-    
-    # Alpha blend radar slightly (90% opaque)
     roi = frame[y1:y2, x1:x2]
     blended = cv2.addWeighted(radar_img, 0.92, roi, 0.08, 0)
     frame[y1:y2, x1:x2] = blended
 
 
 def render_annotated_video(cap: cv2.VideoCapture, frame_detections: list, interpolated_balls: list, 
-                           roi_polygon_pixels, mini_court: MiniCourt, width: int, height: int, fps: int):
+                           roi_polygon_pixels, mini_court: MiniCourt, telemetry_per_frame: list,
+                           width: int, height: int, fps: int):
     """
-    Pass 2: Re-reads the video and renders court ROI, persistent Player 1 & Player 2 boxes,
-    ball markers, trajectory trails, and the 2D Mini-Court radar.
+    Pass 2: Renders court ROI, persistent Player 1 & Player 2 boxes, ball markers,
+    trajectory trails, 2D Mini-Court radar, and the Broadcast Telemetry HUD.
     """
-    print("\n--- Pass 2: Rendering Annotations, Trajectory & 2D Mini-Court Radar ---")
+    print("\n--- Pass 2: Rendering Annotations, Telemetry HUD & 2D Mini-Court Radar ---")
     
-    # Reset video to the beginning
     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out = cv2.VideoWriter(OUTPUT_PATH, fourcc, fps, (width, height))
 
@@ -68,7 +108,6 @@ def render_annotated_video(cap: cv2.VideoCapture, frame_detections: list, interp
     frame_idx = 0
     missing_counter = 0
 
-    # Colors (BGR)
     COLOR_P1 = (255, 160, 0)   # Blue/Cyan
     COLOR_P2 = (0, 140, 255)   # Deep Orange
 
@@ -78,6 +117,7 @@ def render_annotated_video(cap: cv2.VideoCapture, frame_detections: list, interp
             break
 
         detection_data = frame_detections[frame_idx]
+        telemetry = telemetry_per_frame[frame_idx] if frame_idx < len(telemetry_per_frame) else {}
 
         # 1. Reset trajectory on Scene Cut
         if detection_data.get('scene_cut', False):
@@ -102,18 +142,16 @@ def render_annotated_video(cap: cv2.VideoCapture, frame_detections: list, interp
             bx, by = int(round(ball_pos[0])), int(round(ball_pos[1]))
             trajectory.append((bx, by))
 
-            # Draw ball trailing trajectory
             for i in range(1, len(trajectory)):
                 if trajectory[i - 1] is None or trajectory[i] is None:
                     continue
                 alpha = float(i) / len(trajectory)
                 thickness = max(1, int(3 * alpha))
-                color = (0, int(255 * alpha), int(255 * (1 - 0.5 * alpha)))  # Fade from cyan/yellow
+                color = (0, int(255 * alpha), int(255 * (1 - 0.5 * alpha)))
                 cv2.line(frame, trajectory[i - 1], trajectory[i], color, thickness, lineType=cv2.LINE_AA)
 
-            # Draw Ball Marker (outer circle + solid center dot)
             is_interpolated = detection_data['ball'] is None
-            ball_color = (0, 165, 255) if is_interpolated else (0, 255, 255)  # Orange if interpolated, yellow if raw
+            ball_color = (0, 165, 255) if is_interpolated else (0, 255, 255)
             cv2.circle(frame, (bx, by), 7, ball_color, 2, lineType=cv2.LINE_AA)
             cv2.circle(frame, (bx, by), 3, (0, 255, 0), -1, lineType=cv2.LINE_AA)
             
@@ -135,6 +173,9 @@ def render_annotated_video(cap: cv2.VideoCapture, frame_detections: list, interp
             ball_trajectory=list(trajectory)
         )
         overlay_radar_on_frame(frame, radar_img, offset_x=30, offset_y=30)
+
+        # 6. Render Broadcast Telemetry HUD Card
+        draw_broadcast_hud(frame, telemetry, offset_x=30, offset_y=30)
 
         # Write annotated frame
         out.write(frame)
