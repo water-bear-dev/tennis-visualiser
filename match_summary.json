@@ -1,0 +1,57 @@
+{
+    "match_overview": {
+        "total_frames": 3027,
+        "duration_seconds": 121.08,
+        "fps": 25,
+        "total_rallies": 9,
+        "longest_rally_shots": 34,
+        "total_shots_played": 57,
+        "in_calls": 2594,
+        "out_calls": 200
+    },
+    "ball_metrics": {
+        "peak_shot_speed_kmh": 209.0,
+        "average_shot_speed_kmh": 113.6,
+        "total_shots_recorded": 57
+    },
+    "player_1_near_court": {
+        "total_distance_meters": 301.6,
+        "peak_running_speed_kmh": 31.3,
+        "average_running_speed_kmh": 7.4,
+        "shots_played": 23
+    },
+    "player_2_far_court": {
+        "total_distance_meters": 333.0,
+        "peak_running_speed_kmh": 31.7,
+        "average_running_speed_kmh": 6.3,
+        "shots_played": 34
+    },
+    "ai_coaching_intelligence": {
+        "match_tempo_assessment": "High-Endurance Baseline War (Extended rallies with heavy baseline exchanges).",
+        "stroke_breakdown": {
+            "player_1": {
+                "FOREHAND": 5,
+                "BACKHAND": 5,
+                "SERVE": 4,
+                "VOLLEY": 3,
+                "SHOT": 6
+            },
+            "player_2": {
+                "FOREHAND": 0,
+                "BACKHAND": 6,
+                "SERVE": 0,
+                "VOLLEY": 8,
+                "SHOT": 20
+            }
+        },
+        "player_1_tactical_insights": [
+            "Balanced Groundstrokes: Solid baseline consistency between forehand and backhand wings.",
+            "Efficient Court Positioning: Controlled the center of the court with minimal wasted lateral movement.",
+            "Aggressive Net Transition: Successfully transitioned into the forecourt for finishing volleys."
+        ],
+        "player_2_tactical_insights": [
+            "Two-Wing Baseline Defense: Stable rally tolerance with reliable backhand placement.",
+            "Explosive Sprint Recovery: Clocked peak burst speed of 31.7 km/h on defensive scramble."
+        ]
+    }
+}
