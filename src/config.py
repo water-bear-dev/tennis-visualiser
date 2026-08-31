@@ -1,5 +1,5 @@
 # Candidate weights to check in order (custom weights first, fallback to standard YOLOv8)
-MODEL_CANDIDATES = ['best_tennis.pt', 'tennis_ball.pt', 'yolov8n.pt']
+MODEL_CANDIDATES = ['best_tennis.pt', 'tennis_ball_detector.pt', 'yolov8x.pt', 'yolov8m.pt', 'yolov8n.pt']
 
 VIDEO_PATH = 'input.mp4'
 OUTPUT_PATH = 'output.mp4'
@@ -8,9 +8,10 @@ OUTPUT_PATH = 'output.mp4'
 COCO_PERSON_CLASS_ID = 0
 COCO_BALL_CLASS_ID = 32
 
-# Confidence thresholds
-BALL_CONF_THRESHOLD = 0.12     # Lower threshold to capture fast/motion-blurred tennis ball
-PERSON_CONF_THRESHOLD = 0.40   # Higher threshold to filter out low-confidence background false positives
+# High-Resolution & Ball Inference Parameters
+BALL_IMGSZ = 1280               # High resolution to prevent sub-pixel downsampling of small motion-blurred ball
+BALL_CONF_THRESHOLD = 0.08      # Highly sensitive ball confidence threshold
+PERSON_CONF_THRESHOLD = 0.40    # Filter out background crowd & staff false positives
 
 # Spatial Filtering / ROI Settings
 ENABLE_ROI_FILTER = True
@@ -22,8 +23,8 @@ COURT_ROI_NORMALIZED = [
 ]
 
 # Tracking Safety Checks & Limits
-MAX_MISSING_FRAMES = 7          # Max consecutive frames without detection before resetting track
-MAX_BALL_SPEED_PIXELS = 180     # Max plausible displacement in pixels between adjacent frames
+MAX_MISSING_FRAMES = 8          # Max consecutive frames without detection before resetting track
+MAX_BALL_SPEED_PIXELS = 220     # Max plausible displacement in pixels between adjacent frames
 SCENE_CUT_THRESHOLD = 0.60      # Color histogram correlation threshold below which a scene cut is triggered
 
 # Visualization Settings

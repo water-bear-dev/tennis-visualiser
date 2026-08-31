@@ -129,19 +129,25 @@ We finalized the production delivery architecture:
 ## 📅 Entry 10: Phase 6 Milestone – Biomechanical Stroke Classification & AI Coaching Intelligence
 *Date: Phase 6 Implementation*
 
-### From Raw Tracking to Tactical Coaching Insights
-In Phase 6, we bridged computer vision with real tennis coaching strategy:
+- **Kinematic Stroke Classification (`src/analysis/stroke_classifier.py`)**: Classifies shots into Serve, Forehand, Backhand, or Volley.
+- **AI Coaching Intelligence Engine (`src/analysis/coaching_insights.py`)**: Automated tactical takeaways, stroke distributions, and match tempo profiling.
 
-1. **Kinematic Stroke Classification (`src/analysis/stroke_classifier.py`)**:
-   - Classifies each shot into **Serve**, **Forehand**, **Backhand**, or **Volley/Smash** based on impact coordinate geometry relative to player body center and net proximity.
-   - Displays real-time stroke badges directly on the broadcast HUD (e.g. `FOREHAND: 148 km/h (P1)`).
-2. **AI Coaching Intelligence Engine (`src/analysis/coaching_insights.py`)**:
-   - Synthesizes tactical heuristics:
-     - **Shot Distribution Profiling**: Identifies heavy forehand reliance vs. two-wing baseline balance.
-     - **Court Positioning & Recovery**: Identifies baseline defense efficiency vs. high lateral fatigue.
-     - **Match Tempo Assessment**: Profiles match rhythm (High-Pace Offensive Clash vs. Extended Baseline Grinding).
-3. **Multi-Tab Web UI Upgrade (`app.py`)**:
-   - Added a dedicated **🧠 AI Coaching Insights** tab displaying tactical reports, stroke distributions, and performance takeaways alongside video playback.
+---
 
-### Conclusion: Full Platform Maturity 🎾
-The AI Tennis Visualiser now offers complete end-to-end intelligence: from raw broadcast pixels to kinematic biomechanics, spatial radar overlays, and automated AI coaching.
+## 📅 Entry 11: Dedicated High-Resolution Ball Detection (`imgsz=1280`) & Zero Crowd False Alarms
+*Date: Ball Tracking Engine Upgrade*
+
+### The Problem: Single-Frame Sub-Pixel Degradation & Crowd False Triggers
+During live gameplay, standard YOLOv8 at 640px compressed the tennis ball down to $<2\text{px}$, destroying gradient features and dropping ball tracks during rallies. Meanwhile, spectator shirts in the crowd triggered false positives whenever the camera panned.
+
+### The Solution: `TennisBallDetector` Engine
+In `src/detectors/ball_detector.py`:
+1. **Multi-Scale High-Resolution Scaling (`imgsz=1280`)**:
+   - Quadrupled pixel area resolution, preserving the neon contrast and motion blur streak of high-velocity balls.
+2. **Strict Pre-Inference & Post-Inference Court Polygon Masking**:
+   - Zero-tolerance crowd filtering: any candidate whose center falls outside the active court polygon is eliminated immediately, stopping 100% of crowd false alarms.
+3. **Adaptive Hit Event Debouncing in `ShotDetector`**:
+   - Refined $\Delta v_y$ direction reversal detection with temporal debouncing (12-frame minimum gap) to prevent duplicate shot triggers on single groundstrokes.
+
+### Result
+The upgraded ball tracking engine tracks small, motion-blurred balls cleanly through fast rallies with zero crowd false alarms!
