@@ -28,27 +28,25 @@ def draw_player_box(frame, player_data, label: str, color: tuple):
 def draw_broadcast_hud(frame: np.ndarray, telemetry: dict, kinetics: dict, offset_x: int = 30, offset_y: int = 30):
     """
     Renders an expanded broadcast-grade telemetry HUD card in the top-left corner
-    with match stats, ball speed, and player physical exertion metrics.
+    with match stats, ball speed, stroke type classification, and player physical exertion metrics.
     """
-    card_w = 340
-    card_h = 160
+    card_w = 360
+    card_h = 165
     x1 = offset_x
     y1 = offset_y
     x2 = x1 + card_w
     y2 = y1 + card_h
 
-    # Semi-transparent dark background card
     sub_img = frame[y1:y2, x1:x2]
     dark_card = np.full(sub_img.shape, (25, 22, 18), dtype=np.uint8)
     blended = cv2.addWeighted(dark_card, 0.88, sub_img, 0.12, 0)
     frame[y1:y2, x1:x2] = blended
 
-    # Glassmorphic border
     cv2.rectangle(frame, (x1, y1), (x2, y2), (70, 70, 70), 1, lineType=cv2.LINE_AA)
     cv2.line(frame, (x1, y1), (x2, y1), (0, 255, 255), 3, lineType=cv2.LINE_AA)
 
     # 1. Title Header
-    cv2.putText(frame, "AI MATCH TELEMETRY", (x1 + 14, y1 + 22), 
+    cv2.putText(frame, "AI MATCH & KINETICS HUD", (x1 + 14, y1 + 22), 
                 cv2.FONT_HERSHEY_SIMPLEX, 0.50, (200, 200, 200), 1, lineType=cv2.LINE_AA)
 
     # 2. In/Out Call Badge (if recent)
@@ -65,29 +63,32 @@ def draw_broadcast_hud(frame: np.ndarray, telemetry: dict, kinetics: dict, offse
     cv2.putText(frame, rally_text, (x1 + 14, y1 + 52), 
                 cv2.FONT_HERSHEY_SIMPLEX, 0.70, (0, 255, 255), 2, lineType=cv2.LINE_AA)
 
-    # 4. Ball Speed & Attribution
+    # 4. Ball Speed, Stroke Type & Attribution (Phase 6)
     speed = telemetry.get('shot_speed_kmh', 0.0)
     hitter = telemetry.get('last_hitter', 'None')
-    speed_text = f"Ball Speed: {speed:.0f} km/h ({hitter})" if speed > 0 else "Ball Speed: -- km/h"
-    cv2.putText(frame, speed_text, (x1 + 14, y1 + 78), 
-                cv2.FONT_HERSHEY_SIMPLEX, 0.50, (240, 240, 240), 1, lineType=cv2.LINE_AA)
+    stroke = telemetry.get('stroke_type', 'SHOT')
+    if speed > 0:
+        speed_text = f"{stroke}: {speed:.0f} km/h ({hitter})"
+        cv2.putText(frame, speed_text, (x1 + 14, y1 + 80), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.52, (240, 240, 240), 1, lineType=cv2.LINE_AA)
+    else:
+        cv2.putText(frame, "Ball Speed: -- km/h", (x1 + 14, y1 + 80), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.52, (240, 240, 240), 1, lineType=cv2.LINE_AA)
 
     # Divider Line
-    cv2.line(frame, (x1 + 14, y1 + 90), (x2 - 14, y1 + 90), (55, 55, 55), 1)
+    cv2.line(frame, (x1 + 14, y1 + 94), (x2 - 14, y1 + 94), (55, 55, 55), 1)
 
-    # 5. Player Kinetic Exertion (Speed & Cumulative Distance)
-    # Player 1 (Blue)
+    # 5. Player Kinetic Exertion
     p1_spd = kinetics.get('p1_speed_kmh', 0.0)
     p1_dist = kinetics.get('p1_dist_m', 0.0)
     p1_text = f"P1: {p1_spd:.1f} km/h | Dist: {p1_dist:.1f}m"
-    cv2.putText(frame, p1_text, (x1 + 14, y1 + 115), 
+    cv2.putText(frame, p1_text, (x1 + 14, y1 + 119), 
                 cv2.FONT_HERSHEY_SIMPLEX, 0.48, (255, 180, 50), 1, lineType=cv2.LINE_AA)
 
-    # Player 2 (Orange)
     p2_spd = kinetics.get('p2_speed_kmh', 0.0)
     p2_dist = kinetics.get('p2_dist_m', 0.0)
     p2_text = f"P2: {p2_spd:.1f} km/h | Dist: {p2_dist:.1f}m"
-    cv2.putText(frame, p2_text, (x1 + 14, y1 + 142), 
+    cv2.putText(frame, p2_text, (x1 + 14, y1 + 146), 
                 cv2.FONT_HERSHEY_SIMPLEX, 0.48, (50, 180, 255), 1, lineType=cv2.LINE_AA)
 
 
@@ -194,7 +195,7 @@ def render_annotated_video(cap: cv2.VideoCapture, frame_detections: list, interp
         )
         overlay_radar_on_frame(frame, radar_img, offset_x=30, offset_y=30)
 
-        # 6. Render Expanded Kinetics Telemetry HUD Card
+        # 6. Render Broadcast Telemetry HUD Card with Stroke Badge
         draw_broadcast_hud(frame, telemetry, kinetics, offset_x=30, offset_y=30)
 
         # Write annotated frame

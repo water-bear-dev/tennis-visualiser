@@ -110,18 +110,38 @@ Using metric homography coordinates, `src/analysis/shot_detector.py` introduced:
 ## 📅 Entry 8: Phase 4 Milestone – Player Kinetics, Athletic Speed & Positional Heatmaps
 *Date: Phase 4 Implementation*
 
-### The Goal: Athletic Physical Exertion Tracking
-To provide actionable coaching insights, we expanded the system from ball dynamics into comprehensive player biomechanics:
-1. **Instantaneous Running Speed ($\text{km/h}$)**:
-   - Evaluated player foot positions in real-world metric space across a 5-frame rolling window.
-   - Filtered out detection noise to capture realistic sprint bursts ($0 - 28\text{ km/h}$).
-2. **Cumulative Distance Covered ($\text{meters}$)**:
-   - Continuously integrated step distance to measure total player distance ran across points.
-3. **2D Spatial Court Heatmaps**:
-   - Accumulated foot positions on the 2D court canvas, applied 2D Gaussian density convolution, and colorized with the OpenCV `JET` colormap.
-   - Exported `heatmap_player_1.png` (Near Court tactical dominance) and `heatmap_player_2.png` (Far Court tactical dominance).
-4. **Expanded Broadcast HUD**:
-   - Added dedicated telemetry rows for **P1** and **P2** displaying live speed and cumulative meters ran alongside the rally count and ball speed ticker.
+In `src/analysis/player_analytics.py`, we expanded player biomechanics:
+- **Running Speed ($\text{km/h}$)**: Real-time velocity with rolling window filtering.
+- **Cumulative Distance ($m$)**: Integrated running distance across all points.
+- **2D Court Heatmaps**: Exported `heatmap_player_1.png` and `heatmap_player_2.png` via 2D Gaussian density convolution.
 
-### Result
-**Phase 4 is complete!** The platform provides a complete athletic breakdown for both competitors with live HUD telemetry and high-resolution post-match heatmaps.
+---
+
+## 📅 Entry 9: Phase 5 Milestone – The Production Delivery Suite & Interactive Dashboard
+*Date: Phase 5 Implementation*
+
+We finalized the production delivery architecture:
+- **`match_summary.json` & `match_report.html`**: Exported structured JSON and standalone dark-mode HTML reports with embedded heatmaps.
+- **Streamlit Web UI (`app.py`)**: Interactive video player, parameter sliders, and metric dashboards.
+
+---
+
+## 📅 Entry 10: Phase 6 Milestone – Biomechanical Stroke Classification & AI Coaching Intelligence
+*Date: Phase 6 Implementation*
+
+### From Raw Tracking to Tactical Coaching Insights
+In Phase 6, we bridged computer vision with real tennis coaching strategy:
+
+1. **Kinematic Stroke Classification (`src/analysis/stroke_classifier.py`)**:
+   - Classifies each shot into **Serve**, **Forehand**, **Backhand**, or **Volley/Smash** based on impact coordinate geometry relative to player body center and net proximity.
+   - Displays real-time stroke badges directly on the broadcast HUD (e.g. `FOREHAND: 148 km/h (P1)`).
+2. **AI Coaching Intelligence Engine (`src/analysis/coaching_insights.py`)**:
+   - Synthesizes tactical heuristics:
+     - **Shot Distribution Profiling**: Identifies heavy forehand reliance vs. two-wing baseline balance.
+     - **Court Positioning & Recovery**: Identifies baseline defense efficiency vs. high lateral fatigue.
+     - **Match Tempo Assessment**: Profiles match rhythm (High-Pace Offensive Clash vs. Extended Baseline Grinding).
+3. **Multi-Tab Web UI Upgrade (`app.py`)**:
+   - Added a dedicated **🧠 AI Coaching Insights** tab displaying tactical reports, stroke distributions, and performance takeaways alongside video playback.
+
+### Conclusion: Full Platform Maturity 🎾
+The AI Tennis Visualiser now offers complete end-to-end intelligence: from raw broadcast pixels to kinematic biomechanics, spatial radar overlays, and automated AI coaching.

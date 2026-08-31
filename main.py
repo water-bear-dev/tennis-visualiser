@@ -8,6 +8,7 @@ from src.court_detector.court_line_detector import CourtLineDetector
 from src.mini_court.mini_court import MiniCourt
 from src.analysis.shot_detector import ShotDetector
 from src.analysis.player_analytics import PlayerAnalytics
+from src.analysis.report_generator import MatchReportGenerator
 
 
 def main():
@@ -57,6 +58,10 @@ def main():
     # Phase 4 Analytics: Player running speed, cumulative distance covered, & 2D heatmaps
     player_analytics = PlayerAnalytics(mini_court=mini_court, fps=fps)
     kinetics_per_frame, p1_heatmap, p2_heatmap = player_analytics.analyze_player_kinetics(frame_detections)
+
+    # Phase 5 Delivery: Generate JSON match summary & standalone HTML report
+    report_generator = MatchReportGenerator(fps=fps)
+    report_generator.generate_report(frame_detections, telemetry_per_frame, kinetics_per_frame)
 
     # Pass 2: Render visualizations, trajectory trails, 2D Mini-Court radar & Expanded Kinetics HUD
     render_annotated_video(

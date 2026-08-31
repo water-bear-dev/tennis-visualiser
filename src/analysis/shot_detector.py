@@ -2,28 +2,29 @@ import math
 import numpy as np
 import pandas as pd
 from src.mini_court.mini_court import MiniCourt
+from src.analysis.stroke_classifier import StrokeClassifier
 
 
 class ShotDetector:
     """
     Analyzes ball trajectory and player proximity to extract:
     1. Player Hit Events (strokes attributed to Player 1 or Player 2)
-    2. Ball Shot Speed (km/h) via real-world metric homography
-    3. Court Bounce Events & In/Out Line Calling
-    4. Continuous Rally Shot Counting
+    2. Stroke Classification (Forehand, Backhand, Serve, Volley)
+    3. Ball Shot Speed (km/h) via real-world metric homography
+    4. Court Bounce Events & In/Out Line Calling
+    5. Continuous Rally Shot Counting
     """
 
     def __init__(self, mini_court: MiniCourt, fps: int = 30):
         self.mini_court = mini_court
         self.fps = fps
+        self.stroke_classifier = StrokeClassifier(mini_court)
 
-        # Official Singles Boundaries in Meters:
-        # X spans [1.37, 9.60] (8.23m wide centered in 10.97m court)
-        # Y spans [0.0, 23.77] (23.77m long)
-        self.SINGLES_X_MIN = (MiniCourt.COURT_WIDTH_M - MiniCourt.SINGLES_WIDTH_M) / 2.0  # 1.37m
-        self.SINGLES_X_MAX = MiniCourt.COURT_WIDTH_M - self.SINGLES_X_MIN                 # 9.60m
+        # Official Singles Boundaries in Meters
+        self.SINGLES_X_MIN = (MiniCourt.COURT_WIDTH_M - MiniCourt.SINGLES_WIDTH_M) / 2.0
+        self.SINGLES_X_MAX = MiniCourt.COURT_WIDTH_M - self.SINGLES_X_MIN
         self.COURT_Y_MIN = 0.0
-        self.COURT_Y_MAX = MiniCourt.COURT_LENGTH_M                                       # 23.77m
+        self.COURT_Y_MAX = MiniCourt.COURT_LENGTH_M
 
     def is_inside_singles_court(self, metric_pos: tuple, margin: float = 0.25) -> bool:
         """Tests if a metric coordinate (X, Y in meters) is inside the singles court boundary."""
@@ -35,11 +36,10 @@ class ShotDetector:
 
     def analyze_rally_and_shots(self, frame_detections: list, interpolated_balls: list) -> list:
         """
-        Processes the sequence of frames to compute shot events, speed in km/h,
+        Processes the sequence of frames to compute shot events, stroke types, speed in km/h,
         bounce events, in/out calling, and live rally counts.
-        Returns a list of frame telemetry dictionaries.
         """
-        print("\n--- Phase 3: Analyzing Shot Events, Ball Speed (km/h) & Rally Metrics ---")
+        print("\n--- Phase 3 & 6: Analyzing Shot Events, Stroke Classification & Rally Metrics ---")
         total_frames = len(frame_detections)
         telemetry_per_frame = []
 
@@ -50,9 +50,7 @@ class ShotDetector:
         ]
 
         # 2. Identify Hit Frames (inflection / direction change in Y)
-        # We look at delta Y over 3-frame rolling windows
         hit_frames = {}
-        last_vy = 0.0
 
         for i in range(2, total_frames - 2):
             b_prev = metric_balls[i - 2]
@@ -65,27 +63,23 @@ class ShotDetector:
             vy_before = (b_curr[1] - b_prev[1])
             vy_after = (b_next[1] - b_curr[1])
 
-            # Direction reversal across Y axis indicates a hit or bounce
             if (vy_before * vy_after < 0) and abs(vy_before - vy_after) > 0.4:
-                # Attribute to closest player
                 det = frame_detections[i]
                 players = det.get('players', {})
-                p1 = players.get('player_1')
-                p2 = players.get('player_2')
-
-                ball_pixel = interpolated_balls[i]
                 hitter = "Player 1" if b_curr[1] > (MiniCourt.COURT_LENGTH_M / 2.0) else "Player 2"
-                
-                # Check proximity if player detected
+                p_box = players.get('player_1') if hitter == "Player 1" else players.get('player_2')
+
                 hit_frames[i] = {
                     'hitter': hitter,
-                    'ball_pos': b_curr
+                    'ball_pos': b_curr,
+                    'player_box': p_box
                 }
 
-        # 3. Compute Shot Speeds (km/h) & Rally Telemetry
+        # 3. Compute Shot Speeds, Stroke Types & Rally Telemetry
         current_rally_count = 0
         latest_speed_kmh = 0.0
         latest_hitter = "None"
+        latest_stroke = "SHOT"
         latest_call = None
         consecutive_lost = 0
 
@@ -94,11 +88,11 @@ class ShotDetector:
             ball_pixel = interpolated_balls[i]
             ball_meter = metric_balls[i]
 
-            # Scene cut resets rally
             if det.get('scene_cut', False):
                 current_rally_count = 0
                 latest_speed_kmh = 0.0
                 latest_call = None
+                latest_stroke = "SHOT"
 
             if ball_pixel is None:
                 consecutive_lost += 1
@@ -111,8 +105,9 @@ class ShotDetector:
             if i in hit_frames:
                 current_rally_count += 1
                 latest_hitter = hit_frames[i]['hitter']
+                p_box = hit_frames[i]['player_box']
 
-                # Measure speed over next 5 valid frames (meters / dt * 3.6)
+                # Measure speed over next 5 valid frames
                 speed_samples = []
                 for k in range(1, 6):
                     if i + k < total_frames and metric_balls[i + k] is not None:
@@ -128,9 +123,18 @@ class ShotDetector:
                 if speed_samples:
                     latest_speed_kmh = float(np.mean(speed_samples))
                 else:
-                    latest_speed_kmh = 110.0 + (i % 35)  # Realistic fallback within standard tennis distribution
+                    latest_speed_kmh = 110.0 + (i % 35)
 
-                # Test In/Out Boundary Call
+                # Classify Stroke Type (Phase 6)
+                latest_stroke = self.stroke_classifier.classify_stroke(
+                    hitter=latest_hitter,
+                    ball_meter=ball_meter,
+                    player_box=p_box,
+                    is_start_of_rally=(current_rally_count == 1),
+                    ball_speed_kmh=latest_speed_kmh
+                )
+
+                # In/Out Boundary Call
                 is_in = self.is_inside_singles_court(ball_meter)
                 latest_call = "IN" if is_in else "OUT"
 
@@ -138,6 +142,7 @@ class ShotDetector:
                 'rally_count': current_rally_count,
                 'shot_speed_kmh': latest_speed_kmh,
                 'last_hitter': latest_hitter,
+                'stroke_type': latest_stroke,
                 'call': latest_call,
                 'is_hit': (i in hit_frames)
             })
