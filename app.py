@@ -8,7 +8,8 @@ from src.config import (
     MATCH_REPORT_PATH,
     HEATMAP_P1_PATH,
     HEATMAP_P2_PATH,
-    OUTPUT_PATH
+    OUTPUT_PATH,
+    ANALYSIS_DIR
 )
 
 # Page Configuration
@@ -122,7 +123,12 @@ with col4:
     """, unsafe_allow_html=True)
 
 # --- Tabbed Layout ---
-tab_video, tab_coaching, tab_heatmaps = st.tabs(["📺 Match Video & Telemetry", "🧠 AI Coaching Insights", "🗺️ Court Heatmaps"])
+tab_video, tab_coaching, tab_heatmaps, tab_tournament = st.tabs([
+    "📺 Match Video & Telemetry", 
+    "🧠 AI Coaching Insights", 
+    "🗺️ Court Heatmaps",
+    "🏆 Tournament & Multi-Match Batch"
+])
 
 with tab_video:
     vid_col, stats_col = st.columns([2, 1])
@@ -184,3 +190,32 @@ with tab_heatmaps:
     with hm_col2:
         if os.path.exists(HEATMAP_P2_PATH):
             st.image(Image.open(HEATMAP_P2_PATH), caption="Player 2 Tactical Coverage (Far Court)", use_container_width=True)
+
+with tab_tournament:
+    st.subheader("🏆 Multi-Match Batch & Tournament Overview")
+    tourney_file = os.path.join(ANALYSIS_DIR, 'tournament_summary.json')
+    if os.path.exists(tourney_file):
+        with open(tourney_file, 'r') as f:
+            tourney_data = json.load(f)
+        matches = tourney_data.get("matches", [])
+        st.write(f"**Total Tournament Matches Processed:** {len(matches)}")
+        
+        match_table_data = []
+        for m in matches:
+            v_name = m.get('video_file', 'Match')
+            ov = m.get('match_overview', {})
+            bm = m.get('ball_metrics', {})
+            p1 = m.get('player_1_near_court', {})
+            p2 = m.get('player_2_far_court', {})
+            match_table_data.append({
+                "Video": v_name,
+                "Rallies": ov.get('total_rallies', 0),
+                "Longest Rally": ov.get('longest_rally_shots', 0),
+                "Peak Ball Speed (km/h)": bm.get('peak_shot_speed_kmh', 0.0),
+                "P1 Dist (m)": p1.get('total_distance_meters', 0.0),
+                "P2 Dist (m)": p2.get('total_distance_meters', 0.0),
+            })
+        if match_table_data:
+            st.dataframe(pd.DataFrame(match_table_data).set_index("Video"), use_container_width=True)
+    else:
+        st.info("Run `python batch_process.py` to batch process multiple videos and view aggregated tournament statistics.")

@@ -1,6 +1,6 @@
 # Tennis Analysis System: Phased Deployment & Feature Roadmap
 
-This document outlines the phased deployment strategy and completed implementation matrix for the **AI Tennis Analytics Platform**, modeled after and expanding upon the reference architecture in [`abdullahtarek/tennis_analysis`](https://github.com/abdullahtarek/tennis_analysis).
+This document outlines the phased deployment strategy, implementation matrix, and future expansion roadmap for the **AI Tennis Analytics Platform**, modeled after and expanding upon the reference architecture in [`abdullahtarek/tennis_analysis`](https://github.com/abdullahtarek/tennis_analysis).
 
 ---
 
@@ -9,8 +9,8 @@ This document outlines the phased deployment strategy and completed implementati
 ```mermaid
 graph TD
     subgraph Input & Detection
-        V[Video Feed] --> YP[YOLOv8 Player Detection & Tracking]
-        V --> YB[Fine-Tuned Ball Detection]
+        V[Video Feeds / Batch Queue] --> YP[YOLOv8 Player Detection & Tracking]
+        V --> YB[Fine-Tuned Ball Detection: 1280px / TrackNet]
         V --> CK[Court Keypoint Extraction / CNN]
     end
 
@@ -37,6 +37,13 @@ graph TD
         ST --> AN
         AN --> ST_UI[Streamlit Web App & Standalone HTML Reports]
         CG --> ST_UI
+    end
+
+    subgraph Model Training & Batch MLOps
+        MF[Multi-Video Dataset Pipeline] --> TF[train_ball_detector.py]
+        TF --> MW[best_tennis.pt / TrackNet Weights]
+        MW --> YB
+        BP[batch_process.py] --> V
     end
 ```
 
@@ -66,3 +73,8 @@ graph TD
 | **Phase 6** | **F6.1** | **Kinematic Stroke Classifier (Serve, FH, BH, Volley)** | 🟢 **Complete** | `src/analysis/stroke_classifier.py` |
 | | **F6.2** | **AI Tactical Coaching Intelligence Generator** | 🟢 **Complete** | `src/analysis/coaching_insights.py` |
 | | **F6.3** | **Multi-Tab Coaching Dashboard & Telemetry Review** | 🟢 **Complete** | `app.py` & `match_report.html` |
+| **Phase 7** | **F7.1** | **Multi-Video Frame Harvester** | 🟢 **Complete** | `training/extract_frames.py` |
+| | **F7.2** | **Semi-Supervised Auto-Labeling Engine** | 🟢 **Complete** | `training/auto_label.py` |
+| | **F7.3** | **Custom Multi-Video Training Suite** | 🟢 **Complete** | `training/train_ball_detector.py` |
+| | **F7.4** | **Multi-Match Batch Processor** | 🟢 **Complete** | `batch_process.py` |
+| | **F7.5** | **Tournament Comparative Dashboard** | 🟢 **Complete** | `app.py` (Tournament Tab) |

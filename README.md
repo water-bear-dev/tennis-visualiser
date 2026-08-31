@@ -10,9 +10,9 @@ Inspired by and building upon the architecture of [`abdullahtarek/tennis_analysi
 
 ### 1. Multi-Object Tracking & Ball Trajectory
 - **Persistent 2-Player Re-ID (`PlayerTracker`)**: Spatially partitions court players across the net line into **Player 1** (near court) and **Player 2** (far court), filtering out referees and ball boys.
-- **Tuned Ball Inference**: Low-confidence thresholding (`0.12`) to detect small, motion-blurred tennis balls.
-- **Missing Frame Interpolation**: Segmented linear interpolation bounded by `MAX_MISSING_FRAMES = 7` to reconstruct occluded ball paths.
-- **4 Tracking Safety Guardrails**: Velocity/distance jump filters ($180\text{px}$), track gap resets, strict court ROI polygon masking, and HSV 2D histogram scene cut detection.
+- **Dedicated High-Resolution Ball Detector (`TennisBallDetector`)**: Multi-scale 1280px inference to detect small, motion-blurred tennis balls.
+- **Missing Frame Interpolation**: Segmented linear interpolation bounded by `MAX_MISSING_FRAMES = 8` to reconstruct occluded ball paths.
+- **4 Tracking Safety Guardrails**: Velocity/distance jump filters ($220\text{px}$), track gap resets, strict court ROI polygon masking, and HSV 2D histogram scene cut detection.
 
 ### 2. Geometry, Homography & 2D Top-Down Radar
 - **14 Court Keypoints Extraction (`CourtLineDetector`)**: Detects standard ITF court intersections with broadcast calibration fallback.
@@ -20,7 +20,7 @@ Inspired by and building upon the architecture of [`abdullahtarek/tennis_analysi
 - **2D Mini-Court Bird's-Eye Radar**: Real-time overlay in the top-right corner tracking Player 1, Player 2, and ball trajectory trails.
 
 ### 3. Shot Analytics & Biomechanics
-- **Hit Event Detection**: Inflection point analysis ($\Delta v_y$) attributing shots to Player 1 or Player 2.
+- **Hit Event Detection**: Inflection point analysis ($\Delta v_y$) attributing shots to Player 1 or Player 2 with adaptive debouncing.
 - **Physical Ball Velocity ($\text{km/h}$)**: Real-world metric speed measurement over frame deltas.
 - **Automated In/Out Line Calling**: Evaluates ball contact against official ITF singles boundary lines.
 - **Stroke Classification (`StrokeClassifier`)**: Classifies shots into **Serve**, **Forehand**, **Backhand**, or **Volley/Smash**.
@@ -29,7 +29,7 @@ Inspired by and building upon the architecture of [`abdullahtarek/tennis_analysi
 ### 4. Player Kinetics & Exertion
 - **Instantaneous Running Speed ($\text{km/h}$)**: Rolling 5-frame velocity measurement capturing sprint bursts ($0 - 32\text{ km/h}$).
 - **Cumulative Distance Covered ($m$)**: Integrates player movement meters across all rallies.
-- **2D Positional Heatmaps**: High-resolution Gaussian density heatmaps (`heatmap_player_1.png` and `heatmap_player_2.png`) showing tactical court distribution.
+- **2D Positional Heatmaps**: High-resolution Gaussian density heatmaps (`data/analysis/heatmap_player_*.png`) showing tactical court distribution.
 
 ### 5. Automated AI Coaching Intelligence
 - **Tactical Profiling (`CoachingInsightsGenerator`)**: Identifies stroke bias (forehand dominance vs two-wing balance), court positioning efficiency, and match tempo rhythm.
@@ -37,55 +37,19 @@ Inspired by and building upon the architecture of [`abdullahtarek/tennis_analysi
 
 ### 6. Production Dashboard & Reporting Suite
 - **Broadcast Telemetry HUD**: On-screen overlay card showing live rally count, stroke type & ball speed ticker, player sprint speeds, cumulative distance, and `IN`/`OUT` badge.
-- **Structured JSON Export (`match_summary.json`)**: Full machine-readable match telemetry.
-- **Standalone HTML Report (`match_report.html`)**: Responsive dark-mode report with KPI cards, head-to-head comparison tables, and embedded heatmaps.
-- **Interactive Streamlit Web Dashboard (`app.py`)**: Multi-tab web application for video playback, parameter tuning, tactical coaching review, and report downloads.
+- **Structured JSON Export (`data/analysis/match_summary.json`)**: Full machine-readable match telemetry.
+- **Standalone HTML Report (`data/analysis/match_report.html`)**: Responsive dark-mode report with KPI cards, head-to-head comparison tables, and embedded heatmaps.
+- **Interactive Streamlit Web Dashboard (`app.py`)**: Multi-tab web application for video playback, parameter tuning, tactical coaching review, tournament statistics, and report downloads.
+
+### 7. Multi-Video Training Pipeline & Batch MLOps
+- **Multi-Video Frame Harvester (`training/extract_frames.py`)**: Slices sampled training frames across multiple videos.
+- **Semi-Supervised Auto-Labeler (`training/auto_label.py`)**: Generates YOLO format dataset splits (`train/val`) and `data.yaml`.
+- **Custom Model Training CLI (`training/train_ball_detector.py`)**: Fine-tunes YOLOv8 at 1280px and deploys to `best_tennis.pt`.
+- **Multi-Match Batch Processor (`batch_process.py`)**: Runs the pipeline over multiple match files and aggregates tournament summaries.
 
 ---
 
-## 📐 System Architecture
-
-```mermaid
-graph TD
-    subgraph Video Ingestion & Detection
-        V[input.mp4] --> D[Pass 1: YOLOv8 Extraction]
-        D --> ROI[Court ROI Filter]
-        D --> SC[Scene Cut Detector HSV Correlation]
-        D --> VF[Velocity Distance Filter]
-        D --> PT[PlayerTracker: 2-Player Re-ID]
-    end
-
-    subgraph Geometry & Time-Series Engine
-        ROI --> BI[Segmented Pandas Interpolator]
-        D --> CK[CourtLineDetector: 14 Keypoints]
-        CK --> HM[MiniCourt: Metric Homography Matrix]
-    end
-
-    subgraph Analytics & Biomechanics
-        BI --> SD[ShotDetector: Ball Speed km/h & Bounce]
-        BI --> ST[StrokeClassifier: FH / BH / Serve / Volley]
-        PT --> PA[PlayerAnalytics: Speed, Distance & Heatmaps]
-        SD --> CG[CoachingInsightsGenerator: Tactical AI Advice]
-        ST --> CG
-        PA --> CG
-    end
-
-    subgraph Output & Delivery
-        BI --> V2[Pass 2: Video Annotator]
-        HM --> V2
-        SD --> V2
-        ST --> V2
-        PA --> V2
-        V2 --> Out[output.mp4 with HUD & 2D Radar]
-        CG --> Rep[match_summary.json & match_report.html]
-        V2 --> ST_APP[app.py: Streamlit Web Dashboard]
-        Rep --> ST_APP
-    end
-```
-
----
-
-## 🚀 Quick Start
+## 🚀 Quick Start & CLI Guide
 
 ### 1. Installation
 ```bash
@@ -96,21 +60,62 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Run Full Match Pipeline
-Place your footage as `input.mp4` and run:
+---
+
+### 2. Running a Single Match Analysis
+Place your match video into `data/inputs/input.mp4` and run:
 ```bash
 python main.py
 ```
-Outputs generated:
-- `output.mp4` (Annotated broadcast video with HUD and 2D radar)
-- `match_summary.json` (Structured telemetry export)
-- `match_report.html` (Standalone HTML match report)
-- `heatmap_player_1.png` & `heatmap_player_2.png` (Court heatmaps)
+**Generated Outputs**:
+- `data/outputs/output.mp4` (Annotated broadcast video with HUD & 2D radar)
+- `data/analysis/match_summary.json` (Structured telemetry export)
+- `data/analysis/match_report.html` (Standalone HTML match report)
+- `data/analysis/heatmap_player_1.png` & `heatmap_player_2.png` (Court heatmaps)
 
-### 3. Launch Interactive Web UI
+---
+
+### 3. Running Batch Processing on Multiple Match Videos
+Place all your `.mp4` match videos into `data/inputs/` and run:
+```bash
+python batch_process.py
+```
+This processes all matches sequentially and outputs:
+- `data/outputs/{match_name}_annotated.mp4` for each video.
+- `data/analysis/{match_name}_summary.json` for each video.
+- `data/analysis/tournament_summary.json` aggregating stats across all matches.
+
+---
+
+### 4. Training a Custom Model on Multiple Videos
+
+#### Step A: Extract frames from all videos in `data/inputs/`
+```bash
+python training/extract_frames.py --sample_rate 5 --max_frames 400
+```
+
+#### Step B: Auto-label extracted frames & create dataset splits
+```bash
+python training/auto_label.py
+```
+
+#### Step C: Fine-tune custom YOLOv8 ball detector at 1280px resolution
+```bash
+python training/train_ball_detector.py --epochs 50 --batch 8 --imgsz 1280
+```
+*When training finishes, the best checkpoint is automatically deployed as `best_tennis.pt` in the project root and used by the analytics pipeline.*
+
+---
+
+### 5. Launch Interactive Web Dashboard
 ```bash
 streamlit run app.py
 ```
+Features 4 dedicated interactive tabs:
+- **📺 Match Video & Telemetry**: Video player and head-to-head metrics.
+- **🧠 AI Coaching Insights**: Stroke distribution charts & tactical recommendations.
+- **🗺️ Court Heatmaps**: High-resolution 2D tactical court coverage maps.
+- **🏆 Tournament & Multi-Match Batch**: Aggregated multi-match comparisons.
 
 ---
 
@@ -118,14 +123,22 @@ streamlit run app.py
 
 ```
 tennis-visualiser/
+├── data/
+│   ├── inputs/                    # Raw input videos (data/inputs/*.mp4)
+│   ├── outputs/                   # Processed annotated videos
+│   └── analysis/                  # Post-match JSON/HTML reports & heatmaps
+├── training/
+│   ├── extract_frames.py          # Multi-video frame harvester
+│   ├── auto_label.py              # Semi-supervised pseudo-labeling engine
+│   └── train_ball_detector.py      # Custom 1280px YOLOv8 fine-tuner
 ├── src/
-│   ├── __init__.py
 │   ├── config.py                  # Tunable thresholds, paths, ROI coordinates
 │   ├── utils/
 │   │   ├── roi_utils.py           # Spatial polygon coordinate conversions
 │   │   └── scene_utils.py         # HSV histogram comparison for scene cuts
 │   ├── detectors/
-│   │   └── yolo_detector.py       # Model loader & Pass 1 inference extraction
+│   │   ├── ball_detector.py       # Dedicated 1280px high-res ball detector
+│   │   └── yolo_detector.py       # Player inference & Pass 1 orchestrator
 │   ├── trackers/
 │   │   ├── ball_interpolator.py   # Time-series interpolation & gap limits
 │   │   └── player_tracker.py      # Net-split persistent 2-player Re-ID
@@ -141,10 +154,11 @@ tennis-visualiser/
 │   │   └── report_generator.py    # JSON & HTML report compilation
 │   └── visualizers/
 │       └── video_annotator.py     # Pass 2 rendering, HUD, polylines & radar
-├── app.py                         # Interactive Streamlit Web Application
-├── features.md                    # Roadmap & Feature Implementation Matrix
-├── development_blog.md            # Technical engineering journal (10 entries)
-├── main.py                        # Pipeline entrypoint
+├── app.py                         # Multi-tab Streamlit Web Dashboard
+├── batch_process.py               # Batch executor for multi-match queues
+├── features.md                    # 7-Phase Roadmap & Feature Matrix
+├── development_blog.md            # Technical engineering journal (13 entries)
+├── main.py                        # Single-match pipeline entrypoint
 ├── requirements.txt               # Dependencies
 └── .gitignore
 ```

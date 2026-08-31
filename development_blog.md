@@ -144,15 +144,23 @@ Upgraded ball inference with multi-scale `imgsz=1280` high-resolution processing
 ## 📅 Entry 12: Production Repository Architecture – Dedicated Data Pipelines & File Segregation
 *Date: Repository Refactoring*
 
-### The Problem: Root Directory Clutter & Binary Bloat
-As the platform evolved to generate video exports, JSON telemetry, standalone HTML reports, and heatmaps, placing all artifacts in the project root created clutter and risk of committing large binary videos into git history.
+Introduced structured data segregation (`data/inputs/`, `data/outputs/`, `data/analysis/`) and `.gitignore` hygiene to keep repositories clean and production-ready.
 
-### The Solution: Modular Data Organization
-We introduced a structured 3-tier data layout:
-- **`data/inputs/`**: Dedicated home for source footage (`data/inputs/input.mp4`).
-- **`data/outputs/`**: Processed broadcast videos with HUD & radar (`data/outputs/output.mp4`).
-- **`data/analysis/`**: Post-match intelligence exports (`match_summary.json`, `match_report.html`, and `heatmap_player_*.png`).
+---
 
-### Git Hygiene
-- Updated `.gitignore` to track directory skeletons via `.gitkeep` while ignoring large binaries and transient analysis files.
-- Refactored `src/config.py`, `app.py`, `src/analysis/player_analytics.py`, and `src/analysis/report_generator.py` to seamlessly route file IO.
+## 📅 Entry 13: Phase 7 Milestone – Multi-Video Training Pipelines, Auto-Labeling & Batch MLOps
+*Date: Phase 7 Implementation*
+
+### Full End-to-End Multi-Video Training & Batch Execution
+In Phase 7, we built the developer tools to scale the platform across multi-match datasets:
+
+1. **Multi-Video Frame Harvester (`training/extract_frames.py`)**:
+   - Iterates across any collection of match videos in `data/inputs/` and slices sampled training frames.
+2. **Semi-Supervised Auto-Labeler (`training/auto_label.py`)**:
+   - Generates pseudo-labels using high-resolution court ROI containment, automatically splitting datasets into `train/` (80%) and `val/` (20%) and creating `data.yaml`.
+3. **Custom Model Fine-Tuning CLI (`training/train_ball_detector.py`)**:
+   - Fine-tunes YOLOv8 at 1280px resolution and automatically deploys the best checkpoint to `best_tennis.pt`.
+4. **Batch Match Processor (`batch_process.py`)**:
+   - Executes the analytics pipeline across all videos in `data/inputs/` and aggregates tournament statistics into `data/analysis/tournament_summary.json`.
+5. **Streamlit Tournament Analytics Tab (`app.py`)**:
+   - Added a dedicated multi-match comparative view.
