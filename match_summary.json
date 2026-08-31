@@ -3,45 +3,45 @@
         "total_frames": 3027,
         "duration_seconds": 121.08,
         "fps": 25,
-        "total_rallies": 9,
-        "longest_rally_shots": 34,
-        "total_shots_played": 57,
-        "in_calls": 2594,
-        "out_calls": 200
+        "total_rallies": 2,
+        "longest_rally_shots": 102,
+        "total_shots_played": 115,
+        "in_calls": 1320,
+        "out_calls": 1359
     },
     "ball_metrics": {
-        "peak_shot_speed_kmh": 209.0,
-        "average_shot_speed_kmh": 113.6,
-        "total_shots_recorded": 57
+        "peak_shot_speed_kmh": 230.5,
+        "average_shot_speed_kmh": 91.5,
+        "total_shots_recorded": 115
     },
     "player_1_near_court": {
         "total_distance_meters": 301.6,
         "peak_running_speed_kmh": 31.3,
         "average_running_speed_kmh": 7.4,
-        "shots_played": 23
+        "shots_played": 46
     },
     "player_2_far_court": {
         "total_distance_meters": 333.0,
         "peak_running_speed_kmh": 31.7,
         "average_running_speed_kmh": 6.3,
-        "shots_played": 34
+        "shots_played": 69
     },
     "ai_coaching_intelligence": {
         "match_tempo_assessment": "High-Endurance Baseline War (Extended rallies with heavy baseline exchanges).",
         "stroke_breakdown": {
             "player_1": {
-                "FOREHAND": 5,
-                "BACKHAND": 5,
-                "SERVE": 4,
-                "VOLLEY": 3,
-                "SHOT": 6
+                "FOREHAND": 11,
+                "BACKHAND": 29,
+                "SERVE": 0,
+                "VOLLEY": 2,
+                "SHOT": 4
             },
             "player_2": {
-                "FOREHAND": 0,
-                "BACKHAND": 6,
+                "FOREHAND": 38,
+                "BACKHAND": 25,
                 "SERVE": 0,
-                "VOLLEY": 8,
-                "SHOT": 20
+                "VOLLEY": 1,
+                "SHOT": 5
             }
         },
         "player_1_tactical_insights": [
@@ -50,7 +50,7 @@
             "Aggressive Net Transition: Successfully transitioned into the forecourt for finishing volleys."
         ],
         "player_2_tactical_insights": [
-            "Two-Wing Baseline Defense: Stable rally tolerance with reliable backhand placement.",
+            "Forehand Dominance: Aggressive offensive patterns created when attacking off the forehand.",
             "Explosive Sprint Recovery: Clocked peak burst speed of 31.7 km/h on defensive scramble."
         ]
     }
