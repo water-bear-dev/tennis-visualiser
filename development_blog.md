@@ -77,67 +77,51 @@ Detections outside the primary court polygon (spectators, advertising banners, d
 ### 4. Scene Cut Reset via HSV Histogram Correlation
 Using OpenCV 2D HSV color histograms, we compare frame $t$ with frame $t-1$. When a camera switch occurs (`correlation < 0.60`), the system triggers a hard reset: active tracks terminate, and interpolation across the cut boundary is strictly blocked.
 
-### Result
-In benchmark tests across 2,687 frames of broadcast footage, the system detected **38 raw ball frames**, safely interpolated **154 continuous rally frames** (totaling 192 clean frames), successfully identified **2 major camera scene transitions**, and eliminated 100% of spurious cross-court lines.
-
 ---
 
 ## 📅 Entry 5: Completing Phase 1 – Persistent 2-Player Re-ID & Spatial Net Split
 *Date: Phase 1 Finalization*
 
-### The Problem
-While the ball was now smoothly tracked, every person standing inside the court area (including line referees near the sidelines and ball kids) was drawn with a generic player box, causing visual clutter and identity confusion.
-
-### The Solution: `PlayerTracker`
-We engineered a dedicated spatial player tracking engine (`src/trackers/player_tracker.py`):
-1. **Court Net Division**: Partitioned candidate player detections into **Near Court** ($Y \ge Y_{\text{net}}$) and **Far Court** ($Y < Y_{\text{net}}$).
-2. **Persistent ID Assignment**:
-   - **Player 1**: Near court competitor (bottom of screen), rendered in distinct electric blue.
-   - **Player 2**: Far court competitor (top of screen), rendered in distinct deep orange.
-3. **Occlusion & Noise Filtering**: Persons outside the primary competitor zones or transient detections are automatically dropped, ensuring exactly the two active competitors are tracked with clean badge pills.
-
-With this update, **Phase 1 (Foundation & Accurate Multi-Object Detection)** is fully completed!
+We engineered `src/trackers/player_tracker.py` to divide court space across the net line ($Y_{\text{net}}$):
+- **Player 1**: Near court competitor (bottom of screen), rendered in Electric Blue.
+- **Player 2**: Far court competitor (top of screen), rendered in Deep Orange.
+- Filters out non-competitor clutter (line judges, ball kids) and preserves identity through rallies.
 
 ---
 
 ## 📅 Entry 6: Phase 2 Breakthrough – Homography & The 2D Mini-Court Radar
 *Date: Phase 2 Implementation*
 
-### The Challenge: From Perspective Distortion to Metric Ground Truth
-In broadcast tennis, standard baseline cameras view the court at an oblique angle ($\sim 25^\circ - 35^\circ$). This perspective distortion causes near-court objects to appear disproportionately large compared to far-court objects, making direct velocity or distance calculations in screen pixels inaccurate.
-
-### The Solution: Perspective Homography Transformation
-1. **14 Court Keypoints**: Extracted the standard 14 court line intersections (corners, service lines, net junctions) using `src/court_detector/court_line_detector.py`.
-2. **Homography Matrix ($H$)**: Using `cv2.findHomography()`, we computed the $3 \times 3$ projective transformation matrix mapping camera pixels $(u, v)$ to top-down 2D canvas coordinates $(x', y')$ and metric real-world coordinates ($23.77\text{m} \times 10.97\text{m}$).
-3. **2D Mini-Court Bird's-Eye Radar**: Built `src/mini_court/mini_court.py` to draw a live top-down court graphic:
-   - **Player 1 Radar Dot**: Real-time position of Near Court player (Electric Blue).
-   - **Player 2 Radar Dot**: Real-time position of Far Court player (Deep Orange).
-   - **Ball Trajectory**: Real-time 2D shot path and bounce trail (Neon Yellow).
-4. **Broadcast HUD Overlay**: Integrated the mini-court radar seamlessly onto the top-right corner of the video with subtle alpha blending and contrast borders.
+Using standard 14 court keypoints (`src/court_detector/court_line_detector.py`), we computed a perspective transformation matrix $\mathbf{H}$ (`src/mini_court/mini_court.py`) mapping camera pixels $(u, v)$ to top-down 2D canvas coordinates $(x', y')$ and metric real-world coordinates ($23.77\text{m} \times 10.97\text{m}$). We rendered a live top-down mini-court radar in the top-right corner.
 
 ---
 
 ## 📅 Entry 7: Phase 3 Breakthrough – Physics-Based Velocity, Shot Intelligence & Line Calling
 *Date: Phase 3 Implementation*
 
-### The Challenge: Calculating True Kinetic Velocity from Oblique Video
-Determining how fast a tennis ball travels in $\text{km/h}$ requires physical distance traveled in real-world metric space over exact time intervals, rather than screen pixel displacement.
+Using metric homography coordinates, `src/analysis/shot_detector.py` introduced:
+- **Hit Detection**: Analyzing velocity direction reversals ($\Delta v_y$) and player proximity.
+- **Ball Velocity ($\text{km/h}$)**: Physical speed measurement over frame deltas.
+- **Automated In/Out Calling**: Real-time line boundary intersection testing.
+- **Live Rally Counters**: On-screen broadcast HUD displaying continuous rally stats.
 
-### The Solution: `ShotDetector` Engine
-In `src/analysis/shot_detector.py`, we implemented a physics analytics engine:
-1. **Direction Reversal & Hit Detection**:
-   - Analyzed $y$-axis velocity gradients ($\Delta v_y$) across rolling temporal windows to detect the precise frames where players strike the ball.
-   - Attributed each shot to **Player 1** or **Player 2** based on court half positioning.
-2. **Physical Velocity in $\text{km/h}$**:
-   - Projected ball positions into metric meters via homography:
-     $$v = \frac{\sqrt{\Delta X_{\text{m}}^2 + \Delta Y_{\text{m}}^2}}{\Delta t} \times 3.6 \quad (\text{km/h})$$
-3. **Automated Line Calling (`IN` vs `OUT`)**:
-   - Mapped ground contact coordinates against official ITF singles boundary lines ($[1.37\text{m}, 9.60\text{m}] \times [0.0\text{m}, 23.77\text{m}]$).
-4. **Broadcast Telemetry HUD Card**:
-   - Rendered a live match telemetry HUD in the top-left corner displaying:
-     - **Live Rally Count**: e.g., `RALLY: 5 SHOTS`
-     - **Shot Speed Ticker**: e.g., `SPEED: 148 km/h (Player 1)`
-     - **Instant Line Call Indicator**: Green `IN` or Red `OUT` badge
+---
+
+## 📅 Entry 8: Phase 4 Milestone – Player Kinetics, Athletic Speed & Positional Heatmaps
+*Date: Phase 4 Implementation*
+
+### The Goal: Athletic Physical Exertion Tracking
+To provide actionable coaching insights, we expanded the system from ball dynamics into comprehensive player biomechanics:
+1. **Instantaneous Running Speed ($\text{km/h}$)**:
+   - Evaluated player foot positions in real-world metric space across a 5-frame rolling window.
+   - Filtered out detection noise to capture realistic sprint bursts ($0 - 28\text{ km/h}$).
+2. **Cumulative Distance Covered ($\text{meters}$)**:
+   - Continuously integrated step distance to measure total player distance ran across points.
+3. **2D Spatial Court Heatmaps**:
+   - Accumulated foot positions on the 2D court canvas, applied 2D Gaussian density convolution, and colorized with the OpenCV `JET` colormap.
+   - Exported `heatmap_player_1.png` (Near Court tactical dominance) and `heatmap_player_2.png` (Far Court tactical dominance).
+4. **Expanded Broadcast HUD**:
+   - Added dedicated telemetry rows for **P1** and **P2** displaying live speed and cumulative meters ran alongside the rally count and ball speed ticker.
 
 ### Result
-**Phase 3 is complete!** The tennis visualizer is now a full-featured match analytics platform with real-world ball speeds, shot counters, automated line calls, and live 2D radar tracking.
+**Phase 4 is complete!** The platform provides a complete athletic breakdown for both competitors with live HUD telemetry and high-resolution post-match heatmaps.

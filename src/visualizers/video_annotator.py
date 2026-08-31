@@ -25,10 +25,13 @@ def draw_player_box(frame, player_data, label: str, color: tuple):
     cv2.putText(frame, text, (x1 + 5, badge_y2 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2, lineType=cv2.LINE_AA)
 
 
-def draw_broadcast_hud(frame: np.ndarray, telemetry: dict, offset_x: int = 30, offset_y: int = 30):
-    """Renders a modern, broadcast-grade telemetry HUD card in the top-left corner."""
-    card_w = 320
-    card_h = 105
+def draw_broadcast_hud(frame: np.ndarray, telemetry: dict, kinetics: dict, offset_x: int = 30, offset_y: int = 30):
+    """
+    Renders an expanded broadcast-grade telemetry HUD card in the top-left corner
+    with match stats, ball speed, and player physical exertion metrics.
+    """
+    card_w = 340
+    card_h = 160
     x1 = offset_x
     y1 = offset_y
     x2 = x1 + card_w
@@ -37,39 +40,55 @@ def draw_broadcast_hud(frame: np.ndarray, telemetry: dict, offset_x: int = 30, o
     # Semi-transparent dark background card
     sub_img = frame[y1:y2, x1:x2]
     dark_card = np.full(sub_img.shape, (25, 22, 18), dtype=np.uint8)
-    blended = cv2.addWeighted(dark_card, 0.85, sub_img, 0.15, 0)
+    blended = cv2.addWeighted(dark_card, 0.88, sub_img, 0.12, 0)
     frame[y1:y2, x1:x2] = blended
 
     # Glassmorphic border
     cv2.rectangle(frame, (x1, y1), (x2, y2), (70, 70, 70), 1, lineType=cv2.LINE_AA)
-    # Accent top border
     cv2.line(frame, (x1, y1), (x2, y1), (0, 255, 255), 3, lineType=cv2.LINE_AA)
 
     # 1. Title Header
-    cv2.putText(frame, "MATCH TELEMETRY", (x1 + 14, y1 + 22), 
+    cv2.putText(frame, "AI MATCH TELEMETRY", (x1 + 14, y1 + 22), 
                 cv2.FONT_HERSHEY_SIMPLEX, 0.50, (200, 200, 200), 1, lineType=cv2.LINE_AA)
 
-    # 2. Rally Counter Badge
+    # 2. In/Out Call Badge (if recent)
+    call = telemetry.get('call')
+    if call:
+        call_color = (0, 220, 0) if call == "IN" else (0, 0, 240)
+        cv2.rectangle(frame, (x2 - 58, y1 + 10), (x2 - 14, y1 + 34), call_color, -1)
+        cv2.putText(frame, call, (x2 - 50, y1 + 27), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.50, (255, 255, 255), 2, lineType=cv2.LINE_AA)
+
+    # 3. Rally Counter Badge
     rally_count = telemetry.get('rally_count', 0)
     rally_text = f"RALLY: {rally_count} SHOTS"
     cv2.putText(frame, rally_text, (x1 + 14, y1 + 52), 
                 cv2.FONT_HERSHEY_SIMPLEX, 0.70, (0, 255, 255), 2, lineType=cv2.LINE_AA)
 
-    # 3. Latest Shot Speed & Attribution
+    # 4. Ball Speed & Attribution
     speed = telemetry.get('shot_speed_kmh', 0.0)
     hitter = telemetry.get('last_hitter', 'None')
-    if speed > 0:
-        speed_text = f"SPEED: {speed:.0f} km/h ({hitter})"
-        cv2.putText(frame, speed_text, (x1 + 14, y1 + 84), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, lineType=cv2.LINE_AA)
+    speed_text = f"Ball Speed: {speed:.0f} km/h ({hitter})" if speed > 0 else "Ball Speed: -- km/h"
+    cv2.putText(frame, speed_text, (x1 + 14, y1 + 78), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.50, (240, 240, 240), 1, lineType=cv2.LINE_AA)
 
-    # 4. In/Out Call Badge (if recent)
-    call = telemetry.get('call')
-    if call:
-        call_color = (0, 220, 0) if call == "IN" else (0, 0, 240)
-        cv2.rectangle(frame, (x2 - 60, y1 + 12), (x2 - 14, y1 + 38), call_color, -1)
-        cv2.putText(frame, call, (x2 - 52, y1 + 31), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2, lineType=cv2.LINE_AA)
+    # Divider Line
+    cv2.line(frame, (x1 + 14, y1 + 90), (x2 - 14, y1 + 90), (55, 55, 55), 1)
+
+    # 5. Player Kinetic Exertion (Speed & Cumulative Distance)
+    # Player 1 (Blue)
+    p1_spd = kinetics.get('p1_speed_kmh', 0.0)
+    p1_dist = kinetics.get('p1_dist_m', 0.0)
+    p1_text = f"P1: {p1_spd:.1f} km/h | Dist: {p1_dist:.1f}m"
+    cv2.putText(frame, p1_text, (x1 + 14, y1 + 115), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.48, (255, 180, 50), 1, lineType=cv2.LINE_AA)
+
+    # Player 2 (Orange)
+    p2_spd = kinetics.get('p2_speed_kmh', 0.0)
+    p2_dist = kinetics.get('p2_dist_m', 0.0)
+    p2_text = f"P2: {p2_spd:.1f} km/h | Dist: {p2_dist:.1f}m"
+    cv2.putText(frame, p2_text, (x1 + 14, y1 + 142), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.48, (50, 180, 255), 1, lineType=cv2.LINE_AA)
 
 
 def overlay_radar_on_frame(frame: np.ndarray, radar_img: np.ndarray, offset_x: int = 30, offset_y: int = 30):
@@ -93,12 +112,12 @@ def overlay_radar_on_frame(frame: np.ndarray, radar_img: np.ndarray, offset_x: i
 
 def render_annotated_video(cap: cv2.VideoCapture, frame_detections: list, interpolated_balls: list, 
                            roi_polygon_pixels, mini_court: MiniCourt, telemetry_per_frame: list,
-                           width: int, height: int, fps: int):
+                           kinetics_per_frame: list, width: int, height: int, fps: int):
     """
     Pass 2: Renders court ROI, persistent Player 1 & Player 2 boxes, ball markers,
-    trajectory trails, 2D Mini-Court radar, and the Broadcast Telemetry HUD.
+    trajectory trails, 2D Mini-Court radar, and the Expanded Kinetic Telemetry HUD.
     """
-    print("\n--- Pass 2: Rendering Annotations, Telemetry HUD & 2D Mini-Court Radar ---")
+    print("\n--- Pass 2: Rendering Annotations, Kinetics HUD & 2D Mini-Court Radar ---")
     
     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
@@ -118,6 +137,7 @@ def render_annotated_video(cap: cv2.VideoCapture, frame_detections: list, interp
 
         detection_data = frame_detections[frame_idx]
         telemetry = telemetry_per_frame[frame_idx] if frame_idx < len(telemetry_per_frame) else {}
+        kinetics = kinetics_per_frame[frame_idx] if frame_idx < len(kinetics_per_frame) else {}
 
         # 1. Reset trajectory on Scene Cut
         if detection_data.get('scene_cut', False):
@@ -174,8 +194,8 @@ def render_annotated_video(cap: cv2.VideoCapture, frame_detections: list, interp
         )
         overlay_radar_on_frame(frame, radar_img, offset_x=30, offset_y=30)
 
-        # 6. Render Broadcast Telemetry HUD Card
-        draw_broadcast_hud(frame, telemetry, offset_x=30, offset_y=30)
+        # 6. Render Expanded Kinetics Telemetry HUD Card
+        draw_broadcast_hud(frame, telemetry, kinetics, offset_x=30, offset_y=30)
 
         # Write annotated frame
         out.write(frame)

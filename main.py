@@ -7,6 +7,7 @@ from src.utils.roi_utils import get_roi_polygon_pixels
 from src.court_detector.court_line_detector import CourtLineDetector
 from src.mini_court.mini_court import MiniCourt
 from src.analysis.shot_detector import ShotDetector
+from src.analysis.player_analytics import PlayerAnalytics
 
 
 def main():
@@ -53,7 +54,11 @@ def main():
     shot_detector = ShotDetector(mini_court=mini_court, fps=fps)
     telemetry_per_frame = shot_detector.analyze_rally_and_shots(frame_detections, interpolated_balls)
     
-    # Pass 2: Render visualizations, trajectory trails, 2D Mini-Court radar & Broadcast HUD
+    # Phase 4 Analytics: Player running speed, cumulative distance covered, & 2D heatmaps
+    player_analytics = PlayerAnalytics(mini_court=mini_court, fps=fps)
+    kinetics_per_frame, p1_heatmap, p2_heatmap = player_analytics.analyze_player_kinetics(frame_detections)
+
+    # Pass 2: Render visualizations, trajectory trails, 2D Mini-Court radar & Expanded Kinetics HUD
     render_annotated_video(
         cap=cap,
         frame_detections=frame_detections,
@@ -61,6 +66,7 @@ def main():
         roi_polygon_pixels=roi_polygon_pixels,
         mini_court=mini_court,
         telemetry_per_frame=telemetry_per_frame,
+        kinetics_per_frame=kinetics_per_frame,
         width=width,
         height=height,
         fps=fps
