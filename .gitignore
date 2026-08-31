@@ -1,9 +1,32 @@
+# Python environments & caches
 venv/
 env/
 __pycache__/
+*.pyc
+
+# Model binary weights
 *.pt
+*.pth
+*.onnx
+
+# Dedicated data directories (ignore all files except .gitkeep)
+data/inputs/*
+!data/inputs/.gitkeep
+data/outputs/*
+!data/outputs/.gitkeep
+data/analysis/*
+!data/analysis/.gitkeep
+
+# Root legacy files
 input.mp4
 output.mp4
+match_summary.json
+match_report.html
+heatmap_player_1.png
+heatmap_player_2.png
+
+# System & IDE files
 .DS_Store
 .idea/
 .vscode/
+.streamlit/

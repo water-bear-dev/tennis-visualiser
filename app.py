@@ -3,6 +3,13 @@ import os
 import streamlit as st
 import pandas as pd
 from PIL import Image
+from src.config import (
+    MATCH_SUMMARY_PATH,
+    MATCH_REPORT_PATH,
+    HEATMAP_P1_PATH,
+    HEATMAP_P2_PATH,
+    OUTPUT_PATH
+)
 
 # Page Configuration
 st.set_page_config(
@@ -43,15 +50,15 @@ st.markdown("Automated match tracking, kinematic stroke classification, and AI t
 st.sidebar.header("⚙️ Match & Model Configuration")
 
 uploaded_video = st.sidebar.file_uploader("Upload Match Footage (MP4)", type=["mp4"])
-ball_conf = st.sidebar.slider("Ball Confidence Threshold", 0.05, 0.50, 0.12, 0.01)
+ball_conf = st.sidebar.slider("Ball Confidence Threshold", 0.05, 0.50, 0.08, 0.01)
 person_conf = st.sidebar.slider("Player Confidence Threshold", 0.10, 0.80, 0.40, 0.05)
 enable_roi = st.sidebar.checkbox("Enable Court ROI Filter", value=True)
 
 st.sidebar.markdown("---")
 st.sidebar.header("📁 Export & Downloads")
 
-if os.path.exists("match_summary.json"):
-    with open("match_summary.json", "r") as f:
+if os.path.exists(MATCH_SUMMARY_PATH):
+    with open(MATCH_SUMMARY_PATH, "r") as f:
         json_data = f.read()
     st.sidebar.download_button(
         label="📥 Download match_summary.json",
@@ -60,8 +67,8 @@ if os.path.exists("match_summary.json"):
         mime="application/json"
     )
 
-if os.path.exists("match_report.html"):
-    with open("match_report.html", "r") as f:
+if os.path.exists(MATCH_REPORT_PATH):
+    with open(MATCH_REPORT_PATH, "r") as f:
         html_data = f.read()
     st.sidebar.download_button(
         label="📄 Download HTML Report",
@@ -72,8 +79,8 @@ if os.path.exists("match_report.html"):
 
 # --- Load Match Summary ---
 match_data = {}
-if os.path.exists("match_summary.json"):
-    with open("match_summary.json", "r") as f:
+if os.path.exists(MATCH_SUMMARY_PATH):
+    with open(MATCH_SUMMARY_PATH, "r") as f:
         match_data = json.load(f)
 
 overview = match_data.get("match_overview", {})
@@ -120,10 +127,12 @@ tab_video, tab_coaching, tab_heatmaps = st.tabs(["📺 Match Video & Telemetry",
 with tab_video:
     vid_col, stats_col = st.columns([2, 1])
     with vid_col:
-        if os.path.exists("output.mp4"):
+        if os.path.exists(OUTPUT_PATH):
+            st.video(OUTPUT_PATH)
+        elif os.path.exists("output.mp4"):
             st.video("output.mp4")
         else:
-            st.info("Run `python main.py` to generate `output.mp4`.")
+            st.info("Run `python main.py` to generate annotated video in `data/outputs/`.")
 
     with stats_col:
         st.markdown("### ⚔️ Player Head-to-Head")
@@ -170,8 +179,8 @@ with tab_heatmaps:
     st.subheader("🗺️ 2D Spatial Court Heatmaps")
     hm_col1, hm_col2 = st.columns(2)
     with hm_col1:
-        if os.path.exists("heatmap_player_1.png"):
-            st.image(Image.open("heatmap_player_1.png"), caption="Player 1 Tactical Coverage (Near Court)", use_container_width=True)
+        if os.path.exists(HEATMAP_P1_PATH):
+            st.image(Image.open(HEATMAP_P1_PATH), caption="Player 1 Tactical Coverage (Near Court)", use_container_width=True)
     with hm_col2:
-        if os.path.exists("heatmap_player_2.png"):
-            st.image(Image.open("heatmap_player_2.png"), caption="Player 2 Tactical Coverage (Far Court)", use_container_width=True)
+        if os.path.exists(HEATMAP_P2_PATH):
+            st.image(Image.open(HEATMAP_P2_PATH), caption="Player 2 Tactical Coverage (Far Court)", use_container_width=True)

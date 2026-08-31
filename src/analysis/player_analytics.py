@@ -2,6 +2,7 @@ import math
 import cv2
 import numpy as np
 from src.mini_court.mini_court import MiniCourt
+from src.config import HEATMAP_P1_PATH, HEATMAP_P2_PATH
 
 
 class PlayerAnalytics:
@@ -9,7 +10,7 @@ class PlayerAnalytics:
     Computes kinetic player metrics:
     1. Instantaneous running speed (km/h)
     2. Cumulative distance covered (meters)
-    3. 2D spatial court density heatmaps
+    3. 2D spatial court density heatmaps saved in data/analysis/
     """
 
     def __init__(self, mini_court: MiniCourt, fps: int = 30, speed_window: int = 5):
@@ -64,7 +65,6 @@ class PlayerAnalytics:
             det = frame_detections[i]
             is_cut = det.get('scene_cut', False)
 
-            # Speed calculation over rolling window
             speed_p1 = 0.0
             speed_p2 = 0.0
 
@@ -76,16 +76,15 @@ class PlayerAnalytics:
                     d_m = math.hypot(p_curr[0] - p_prev[0], p_curr[1] - p_prev[1])
                     time_s = self.speed_window / float(self.fps)
                     calc_speed = (d_m / time_s) * 3.6
-                    if 0.5 <= calc_speed <= 32.0:  # Valid sprint range
+                    if 0.5 <= calc_speed <= 32.0:
                         speed_p1 = calc_speed
 
-            # Single frame distance accumulation
             if i > 0 and not is_cut:
                 prev_1 = p1_metric_coords[i - 1]
                 curr_1 = p1_metric_coords[i]
                 if prev_1 is not None and curr_1 is not None:
                     step_d1 = math.hypot(curr_1[0] - prev_1[0], curr_1[1] - prev_1[1])
-                    if step_d1 < 1.5:  # Filter out tracking jumps
+                    if step_d1 < 1.5:
                         cum_dist_p1 += step_d1
 
             # Player 2
@@ -118,11 +117,11 @@ class PlayerAnalytics:
         p1_heatmap = self._generate_heatmap(p1_canvas_coords, "Player 1 Heatmap (Near Court)")
         p2_heatmap = self._generate_heatmap(p2_canvas_coords, "Player 2 Heatmap (Far Court)")
 
-        # Save heatmaps to disk
-        cv2.imwrite('heatmap_player_1.png', p1_heatmap)
-        cv2.imwrite('heatmap_player_2.png', p2_heatmap)
+        # Save heatmaps directly to data/analysis/
+        cv2.imwrite(HEATMAP_P1_PATH, p1_heatmap)
+        cv2.imwrite(HEATMAP_P2_PATH, p2_heatmap)
         print(f"Kinetics Complete: Player 1 ran {cum_dist_p1:.1f}m | Player 2 ran {cum_dist_p2:.1f}m")
-        print("Exported: 'heatmap_player_1.png' and 'heatmap_player_2.png'")
+        print(f"Exported: '{HEATMAP_P1_PATH}' and '{HEATMAP_P2_PATH}'")
 
         return kinetics_per_frame, p1_heatmap, p2_heatmap
 
@@ -139,25 +138,20 @@ class PlayerAnalytics:
                 if 0 <= x < w and 0 <= y < h:
                     cv2.circle(density, (x, y), 15, 1.0, -1)
 
-        # Smooth with Gaussian blur
         density = cv2.GaussianBlur(density, (31, 31), 0)
         max_val = np.max(density)
         if max_val > 0:
             density = density / max_val
 
-        # Colorize with JET colormap
         density_uint8 = (density * 255).astype(np.uint8)
         color_heatmap = cv2.applyColorMap(density_uint8, cv2.COLORMAP_JET)
 
-        # Draw base mini-court
         base_canvas = np.full((h, w, 3), (35, 30, 25), dtype=np.uint8)
         self.mini_court.draw_court_lines(base_canvas)
 
-        # Blend heatmap with court lines
         mask = (density > 0.05).astype(np.uint8)
         mask_3ch = cv2.merge([mask, mask, mask])
         blended = np.where(mask_3ch > 0, cv2.addWeighted(color_heatmap, 0.65, base_canvas, 0.35, 0), base_canvas)
 
-        # Title
         cv2.putText(blended, title, (14, 18), cv2.FONT_HERSHEY_SIMPLEX, 0.38, (255, 255, 255), 1, cv2.LINE_AA)
         return blended

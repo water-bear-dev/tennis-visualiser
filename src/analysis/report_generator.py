@@ -4,13 +4,13 @@ import os
 import cv2
 import numpy as np
 from src.analysis.coaching_insights import CoachingInsightsGenerator
+from src.config import MATCH_SUMMARY_PATH, MATCH_REPORT_PATH, HEATMAP_P1_PATH, HEATMAP_P2_PATH
 
 
 class MatchReportGenerator:
     """
-    Compiles aggregate match statistics, stroke distributions, and AI coaching insights:
-    1. 'match_summary.json' - Structured machine-readable match metrics & coaching heuristics
-    2. 'match_report.html' - Self-contained, responsive, broadcast-grade HTML report with coaching insights
+    Compiles aggregate match statistics, stroke distributions, and AI coaching insights
+    and saves them to the data/analysis/ directory.
     """
 
     def __init__(self, fps: int = 30):
@@ -25,7 +25,7 @@ class MatchReportGenerator:
         return ""
 
     def generate_report(self, frame_detections: list, telemetry_per_frame: list, kinetics_per_frame: list):
-        """Processes telemetry streams and exports JSON and HTML reports."""
+        """Processes telemetry streams and exports JSON and HTML reports to data/analysis/."""
         print("\n--- Phase 5 & 6: Generating Match Reports & AI Coaching Insights ---")
         total_frames = len(frame_detections)
         duration_s = total_frames / float(self.fps)
@@ -89,18 +89,18 @@ class MatchReportGenerator:
             }
         }
 
-        # 2. Generate AI Coaching Insights (Phase 6)
+        # 2. Generate AI Coaching Insights
         coaching_data = self.coaching_generator.generate_coaching_report(base_summary, telemetry_per_frame)
         base_summary["ai_coaching_intelligence"] = coaching_data
 
-        # 3. Export JSON
-        with open('match_summary.json', 'w') as f:
+        # 3. Export JSON to data/analysis/
+        with open(MATCH_SUMMARY_PATH, 'w') as f:
             json.dump(base_summary, f, indent=4)
-        print("Exported: 'match_summary.json'")
+        print(f"Exported: '{MATCH_SUMMARY_PATH}'")
 
-        # 4. Export HTML Report
-        p1_heatmap_b64 = self._encode_image_base64('heatmap_player_1.png')
-        p2_heatmap_b64 = self._encode_image_base64('heatmap_player_2.png')
+        # 4. Export HTML Report to data/analysis/
+        p1_heatmap_b64 = self._encode_image_base64(HEATMAP_P1_PATH)
+        p2_heatmap_b64 = self._encode_image_base64(HEATMAP_P2_PATH)
 
         strokes_p1 = coaching_data["stroke_breakdown"]["player_1"]
         strokes_p2 = coaching_data["stroke_breakdown"]["player_2"]
@@ -169,7 +169,6 @@ class MatchReportGenerator:
             <div class="subtitle">Broadcast Computer Vision, Biomechanical Stroke Classification & Tactical Intelligence</div>
         </header>
 
-        <!-- KPI Metrics Grid -->
         <div class="grid-4">
             <div class="card">
                 <div class="card-label">Total Match Rallies</div>
@@ -189,7 +188,6 @@ class MatchReportGenerator:
             </div>
         </div>
 
-        <!-- AI Coaching Insights -->
         <h2 class="section-title">🧠 AI Tactical Coaching Intelligence</h2>
         <div style="background-color:var(--card-bg);border:1px solid var(--border);border-left:4px solid var(--accent-gold);border-radius:8px;padding:14px 20px;margin-bottom:20px;">
             <strong>Match Tempo Profile:</strong> {coaching_data["match_tempo_assessment"]}
@@ -211,7 +209,6 @@ class MatchReportGenerator:
             </div>
         </div>
 
-        <!-- Head to Head Table -->
         <h2 class="section-title">⚔️ Head-to-Head Kinetic Breakdown</h2>
         <table class="h2h-table">
             <thead>
@@ -245,7 +242,6 @@ class MatchReportGenerator:
             </tbody>
         </table>
 
-        <!-- Heatmaps -->
         <h2 class="section-title">🗺️ 2D Court Spatial Heatmaps</h2>
         <div class="heatmaps-container">
             <div class="heatmap-box">
@@ -265,6 +261,6 @@ class MatchReportGenerator:
 </body>
 </html>
 """
-        with open('match_report.html', 'w') as f:
+        with open(MATCH_REPORT_PATH, 'w') as f:
             f.write(html_content)
-        print("Exported: 'match_report.html'")
+        print(f"Exported: '{MATCH_REPORT_PATH}'")

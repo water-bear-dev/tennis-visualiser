@@ -1,8 +1,24 @@
+import os
+
+# Dedicated Directories
+INPUT_DIR = os.path.join('data', 'inputs')
+OUTPUT_DIR = os.path.join('data', 'outputs')
+ANALYSIS_DIR = os.path.join('data', 'analysis')
+
+# File Paths
+DEFAULT_VIDEO_NAME = 'input.mp4'
+DEFAULT_OUTPUT_NAME = 'output.mp4'
+
+VIDEO_PATH = os.path.join(INPUT_DIR, DEFAULT_VIDEO_NAME)
+OUTPUT_PATH = os.path.join(OUTPUT_DIR, DEFAULT_OUTPUT_NAME)
+
+MATCH_SUMMARY_PATH = os.path.join(ANALYSIS_DIR, 'match_summary.json')
+MATCH_REPORT_PATH = os.path.join(ANALYSIS_DIR, 'match_report.html')
+HEATMAP_P1_PATH = os.path.join(ANALYSIS_DIR, 'heatmap_player_1.png')
+HEATMAP_P2_PATH = os.path.join(ANALYSIS_DIR, 'heatmap_player_2.png')
+
 # Candidate weights to check in order (custom weights first, fallback to standard YOLOv8)
 MODEL_CANDIDATES = ['best_tennis.pt', 'tennis_ball_detector.pt', 'yolov8x.pt', 'yolov8m.pt', 'yolov8n.pt']
-
-VIDEO_PATH = 'input.mp4'
-OUTPUT_PATH = 'output.mp4'
 
 # COCO Class IDs
 COCO_PERSON_CLASS_ID = 0
@@ -29,3 +45,10 @@ SCENE_CUT_THRESHOLD = 0.60      # Color histogram correlation threshold below wh
 
 # Visualization Settings
 TRAJECTORY_MAX_POINTS = 25      # Number of historical points to display for the ball trail
+
+
+def ensure_directories():
+    """Ensures all dedicated data and analysis directories exist."""
+    os.makedirs(INPUT_DIR, exist_ok=True)
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(ANALYSIS_DIR, exist_ok=True)

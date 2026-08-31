@@ -137,17 +137,22 @@ We finalized the production delivery architecture:
 ## 📅 Entry 11: Dedicated High-Resolution Ball Detection (`imgsz=1280`) & Zero Crowd False Alarms
 *Date: Ball Tracking Engine Upgrade*
 
-### The Problem: Single-Frame Sub-Pixel Degradation & Crowd False Triggers
-During live gameplay, standard YOLOv8 at 640px compressed the tennis ball down to $<2\text{px}$, destroying gradient features and dropping ball tracks during rallies. Meanwhile, spectator shirts in the crowd triggered false positives whenever the camera panned.
+Upgraded ball inference with multi-scale `imgsz=1280` high-resolution processing and strict pre-inference court polygon containment, eliminating downsampling loss and 100% of crowd false alarms.
 
-### The Solution: `TennisBallDetector` Engine
-In `src/detectors/ball_detector.py`:
-1. **Multi-Scale High-Resolution Scaling (`imgsz=1280`)**:
-   - Quadrupled pixel area resolution, preserving the neon contrast and motion blur streak of high-velocity balls.
-2. **Strict Pre-Inference & Post-Inference Court Polygon Masking**:
-   - Zero-tolerance crowd filtering: any candidate whose center falls outside the active court polygon is eliminated immediately, stopping 100% of crowd false alarms.
-3. **Adaptive Hit Event Debouncing in `ShotDetector`**:
-   - Refined $\Delta v_y$ direction reversal detection with temporal debouncing (12-frame minimum gap) to prevent duplicate shot triggers on single groundstrokes.
+---
 
-### Result
-The upgraded ball tracking engine tracks small, motion-blurred balls cleanly through fast rallies with zero crowd false alarms!
+## 📅 Entry 12: Production Repository Architecture – Dedicated Data Pipelines & File Segregation
+*Date: Repository Refactoring*
+
+### The Problem: Root Directory Clutter & Binary Bloat
+As the platform evolved to generate video exports, JSON telemetry, standalone HTML reports, and heatmaps, placing all artifacts in the project root created clutter and risk of committing large binary videos into git history.
+
+### The Solution: Modular Data Organization
+We introduced a structured 3-tier data layout:
+- **`data/inputs/`**: Dedicated home for source footage (`data/inputs/input.mp4`).
+- **`data/outputs/`**: Processed broadcast videos with HUD & radar (`data/outputs/output.mp4`).
+- **`data/analysis/`**: Post-match intelligence exports (`match_summary.json`, `match_report.html`, and `heatmap_player_*.png`).
+
+### Git Hygiene
+- Updated `.gitignore` to track directory skeletons via `.gitkeep` while ignoring large binaries and transient analysis files.
+- Refactored `src/config.py`, `app.py`, `src/analysis/player_analytics.py`, and `src/analysis/report_generator.py` to seamlessly route file IO.
