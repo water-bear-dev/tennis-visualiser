@@ -2,8 +2,11 @@ import glob
 import os
 import random
 import shutil
+import sys
 import cv2
 from ultralytics import YOLO
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.config import (
     MODEL_CANDIDATES,
     BALL_IMGSZ,

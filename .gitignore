@@ -17,6 +17,23 @@ data/outputs/*
 data/analysis/*
 !data/analysis/.gitkeep
 
+# Datasets and training data
+dataset/
+datasets/
+training/dataset/
+training/datasets/
+runs/
+wandb/
+
+# Media & label files across dataset directories
+*.jpg
+*.jpeg
+*.png
+*.mp4
+*.avi
+*.mov
+*.mkv
+
 # Root legacy files
 input.mp4
 output.mp4

@@ -1,7 +1,10 @@
 import argparse
 import os
 import shutil
+import sys
 from ultralytics import YOLO
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.config import BALL_IMGSZ
 
 
