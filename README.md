@@ -234,5 +234,6 @@ tennis-visualiser/
 ---
 
 ## 🗺️ Roadmap & Documentation
+- Model architecture & training guide: **[`model_and_training.md`](model_and_training.md)**
 - Full implementation breakdown: **[`features.md`](features.md)**
 - Engineering journal & decision logs: **[`development_blog.md`](development_blog.md)**
