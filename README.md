@@ -55,14 +55,44 @@ Inspired by and building upon the architecture of [`abdullahtarek/tennis_analysi
 
 ---
 
+## 📋 Prerequisites & System Requirements
+
+Before getting started, ensure you have the following installed:
+
+- **Python**: `3.9` to `3.12+` (tested on macOS Apple Silicon, Linux, and Windows)
+- **Virtual Environment**: `venv` or `conda`
+- **FFmpeg** (Recommended for video codec handling):
+  - **macOS**: `brew install ffmpeg`
+  - **Ubuntu/Debian**: `sudo apt update && sudo apt install ffmpeg`
+- **Hardware Acceleration** *(Optional but recommended)*:
+  - Apple Silicon GPU (Metal/MPS)
+  - NVIDIA GPU with CUDA
+  - Multi-core CPU fallback supported
+- **Local LLM/VLM Copilots** *(Optional - for Phase 8 AI diagnostics & scouting)*:
+  - Install [Ollama](https://ollama.com/)
+  - Pull models:
+    ```bash
+    ollama pull qwen2.5:latest
+    ollama pull moondream:latest
+    ollama serve
+    ```
+
+---
+
 ## 🚀 Quick Start & CLI Guide
 
-### 1. Installation
+### 1. Installation & Environment Setup
 ```bash
+# Clone the repository
 git clone https://github.com/water-bear-dev/tennis-visualiser.git
 cd tennis-visualiser
+
+# Create and activate virtual environment
 python3 -m venv venv
-source venv/bin/activate
+source venv/bin/activate  # On Windows: .\venv\Scripts\activate
+
+# Upgrade pip and install all prerequisites
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
