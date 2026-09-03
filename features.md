@@ -45,11 +45,19 @@ graph TD
         MW --> YB
         BP[batch_process.py] --> V
     end
+
+    subgraph LLM & Vision-Language Copilot
+        VLM[Vision-Language Active Verifier / Triage] -.-> MF
+        VLM -.-> TF
+        LLM_DIAG[LLM Training Diagnostics Copilot] -.-> TF
+        CG -.-> LLM_SCOUT[LLM Tactical & Scouting Generator]
+        LLM_SCOUT --> ST_UI
+    end
 ```
 
 ---
 
-## Implementation Status Matrix (100% Complete)
+## Implementation Status Matrix
 
 | Phase | Feature ID | Feature Description | Status | Implementation Module |
 | :--- | :---: | :--- | :---: | :--- |
@@ -78,3 +86,7 @@ graph TD
 | | **F7.3** | **Custom Multi-Video Training Suite** | 🟢 **Complete** | `training/train_ball_detector.py` |
 | | **F7.4** | **Multi-Match Batch Processor** | 🟢 **Complete** | `batch_process.py` |
 | | **F7.5** | **Tournament Comparative Dashboard** | 🟢 **Complete** | `app.py` (Tournament Tab) |
+| **Phase 8** | **F8.1** | **VLM-Assisted Active Verification & Label Denoising** | 🟡 **Planned** | `training/vlm_verifier.py` |
+| | **F8.2** | **Smart Video Triage & Rally Segmentation (Non-Play Filter)** | 🟡 **Planned** | `training/video_triage.py` |
+| | **F8.3** | **Automated Training Diagnostics & Hyperparameter Copilot** | 🟡 **Planned** | `training/train_diagnostics.py` |
+| | **F8.4** | **LLM-Powered Narrative Tactical Scouting Reports** | 🟡 **Planned** | `src/analysis/llm_scout.py` |
