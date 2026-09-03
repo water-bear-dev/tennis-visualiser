@@ -164,3 +164,21 @@ In Phase 7, we built the developer tools to scale the platform across multi-matc
    - Executes the analytics pipeline across all videos in `data/inputs/` and aggregates tournament statistics into `data/analysis/tournament_summary.json`.
 5. **Streamlit Tournament Analytics Tab (`app.py`)**:
    - Added a dedicated multi-match comparative view.
+
+---
+
+## 📅 Entry 14: Phase 8 Milestone – Local LLM & Vision-Language Model Copilot Suite (Qwen 2.5 & Moondream)
+*Date: Phase 8 Implementation*
+
+### Empowering Computer Vision MLOps with Local Foundation Models
+In Phase 8, we bridged traditional deep learning computer vision (YOLOv8 + OpenCV) with modern Foundation Models (LLMs & VLMs) running 100% locally through Ollama on Apple Silicon:
+
+1. **AI Training Diagnostics Copilot (`training/train_diagnostics.py`)**:
+   - Integrated **Qwen 2.5 (7B-Instruct)** to automatically analyze YOLO training progression, detect small-object/motion-blur bottlenecks, evaluate box vs classification losses, and export actionable hyperparameter tuning reports to `runs/detect/training_diagnostic_report.md`.
+2. **Executive Tactical Scouting Engine (`src/analysis/llm_scout.py`)**:
+   - Ingests structured multi-modal match telemetry (`match_summary.json`) and uses **Qwen 2.5** to generate an executive coaching breakdown, covering court positioning efficiency, stroke dominance (forehand vs backhand), physical exertion, and 3 strategic match directives.
+3. **VLM Active Label Verifier (`training/vlm_verifier.py`)**:
+   - Leveraged **Moondream** (lightweight local Vision-Language Model) to audit low-confidence bounding box candidate crops, eliminating noisy false positives (white lines, shoes, logos) prior to training dataset compilation.
+4. **Smart Video Triage & Rally Segmentation (`training/video_triage.py`)**:
+   - Deployed **Moondream** to sample raw match video and classify frames into live rallies vs. non-play breaks and replays, ensuring frame extraction focuses strictly on active points.
+

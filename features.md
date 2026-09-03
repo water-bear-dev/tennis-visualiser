@@ -86,7 +86,7 @@ graph TD
 | | **F7.3** | **Custom Multi-Video Training Suite** | 🟢 **Complete** | `training/train_ball_detector.py` |
 | | **F7.4** | **Multi-Match Batch Processor** | 🟢 **Complete** | `batch_process.py` |
 | | **F7.5** | **Tournament Comparative Dashboard** | 🟢 **Complete** | `app.py` (Tournament Tab) |
-| **Phase 8** | **F8.1** | **VLM-Assisted Active Verification & Label Denoising** | 🟡 **Planned** | `training/vlm_verifier.py` |
-| | **F8.2** | **Smart Video Triage & Rally Segmentation (Non-Play Filter)** | 🟡 **Planned** | `training/video_triage.py` |
-| | **F8.3** | **Automated Training Diagnostics & Hyperparameter Copilot** | 🟡 **Planned** | `training/train_diagnostics.py` |
-| | **F8.4** | **LLM-Powered Narrative Tactical Scouting Reports** | 🟡 **Planned** | `src/analysis/llm_scout.py` |
+| **Phase 8** | **F8.1** | **VLM-Assisted Active Verification & Label Denoising** | 🟢 **Complete** | `training/vlm_verifier.py` |
+| | **F8.2** | **Smart Video Triage & Rally Segmentation (Non-Play Filter)** | 🟢 **Complete** | `training/video_triage.py` |
+| | **F8.3** | **Automated Training Diagnostics & Hyperparameter Copilot** | 🟢 **Complete** | `training/train_diagnostics.py` |
+| | **F8.4** | **LLM-Powered Narrative Tactical Scouting Reports** | 🟢 **Complete** | `src/analysis/llm_scout.py` |

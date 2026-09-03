@@ -47,6 +47,12 @@ Inspired by and building upon the architecture of [`abdullahtarek/tennis_analysi
 - **Custom Model Training CLI (`training/train_ball_detector.py`)**: Fine-tunes YOLOv8 at 1280px and deploys to `best_tennis.pt`.
 - **Multi-Match Batch Processor (`batch_process.py`)**: Runs the pipeline over multiple match files and aggregates tournament summaries.
 
+### 8. Local LLM & Vision-Language Model (VLM) Copilot Suite
+- **AI Training Diagnostics Copilot (`training/train_diagnostics.py`)**: Connects to local **Qwen 2.5** via Ollama to diagnose training convergence, analyze loss curves, and recommend custom ML optimizations.
+- **Executive Tactical Scouting Engine (`src/analysis/llm_scout.py`)**: Converts match telemetry into narrative coaching reports and tactical game plans.
+- **VLM Active Label Verifier (`training/vlm_verifier.py`)**: Employs local **Moondream** vision model to audit ambiguous ball crops and eliminate false positives.
+- **Smart Video Triage & Rally Segmentation (`training/video_triage.py`)**: Uses local VLM to filter out non-play footage (replays, crowd close-ups, breaks) before dataset extraction.
+
 ---
 
 ## 🚀 Quick Start & CLI Guide
@@ -99,15 +105,43 @@ python training/extract_frames.py --sample_rate 5 --max_frames 400
 python training/auto_label.py
 ```
 
-#### Step C: Fine-tune custom YOLOv8 ball detector at 1280px resolution
+#### Step C: Fine-tune custom YOLOv8 ball detector
 ```bash
-python training/train_ball_detector.py --epochs 50 --batch 8 --imgsz 1280
+python training/train_ball_detector.py --epochs 25 --batch 16 --imgsz 640
 ```
 *When training finishes, the best checkpoint is automatically deployed as `best_tennis.pt` in the project root and used by the analytics pipeline.*
 
 ---
 
-### 5. Launch Interactive Web Dashboard
+### 5. Local LLM & VLM Copilot Commands
+
+Ensure local Ollama is running (`ollama serve`), then run:
+
+#### AI Training Diagnostics (Powered by Qwen 2.5)
+```bash
+python training/train_diagnostics.py
+```
+*Outputs diagnostic insights to `runs/detect/training_diagnostic_report.md`.*
+
+#### Pro Tactical Scouting & Coaching Report (Powered by Qwen 2.5)
+```bash
+python src/analysis/llm_scout.py
+```
+*Outputs narrative coaching report to `data/analysis/tactical_scouting_report.md`.*
+
+#### VLM Active Label Verification (Powered by Moondream)
+```bash
+python training/vlm_verifier.py
+```
+
+#### Smart Video Triage & Rally Segmentation (Powered by Moondream)
+```bash
+python training/video_triage.py --video data/inputs/input_grass.mp4
+```
+
+---
+
+### 6. Launch Interactive Web Dashboard
 ```bash
 streamlit run app.py
 ```
@@ -130,7 +164,10 @@ tennis-visualiser/
 ├── training/
 │   ├── extract_frames.py          # Multi-video frame harvester
 │   ├── auto_label.py              # Semi-supervised pseudo-labeling engine
-│   └── train_ball_detector.py      # Custom 1280px YOLOv8 fine-tuner
+│   ├── train_ball_detector.py     # Custom YOLOv8 fine-tuner
+│   ├── train_diagnostics.py       # Local LLM training diagnostics copilot (Qwen 2.5)
+│   ├── vlm_verifier.py            # Local VLM active label verification (Moondream)
+│   └── video_triage.py            # Smart VLM video triage & rally segmentation
 ├── src/
 │   ├── config.py                  # Tunable thresholds, paths, ROI coordinates
 │   ├── utils/
@@ -151,13 +188,14 @@ tennis-visualiser/
 │   │   ├── stroke_classifier.py   # Forehand, Backhand, Serve, Volley classifier
 │   │   ├── player_analytics.py    # Player running speeds, distance & heatmaps
 │   │   ├── coaching_insights.py   # Automated AI coaching & tactical profiling
+│   │   ├── llm_scout.py           # Local LLM narrative tactical scouting engine (Qwen 2.5)
 │   │   └── report_generator.py    # JSON & HTML report compilation
 │   └── visualizers/
 │       └── video_annotator.py     # Pass 2 rendering, HUD, polylines & radar
 ├── app.py                         # Multi-tab Streamlit Web Dashboard
 ├── batch_process.py               # Batch executor for multi-match queues
-├── features.md                    # 7-Phase Roadmap & Feature Matrix
-├── development_blog.md            # Technical engineering journal (13 entries)
+├── features.md                    # 8-Phase Roadmap & Feature Matrix
+├── development_blog.md            # Technical engineering journal (14 entries)
 ├── main.py                        # Single-match pipeline entrypoint
 ├── requirements.txt               # Dependencies
 └── .gitignore
