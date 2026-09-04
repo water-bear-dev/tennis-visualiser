@@ -1,3 +1,10 @@
+"""
+src/visualizers/video_annotator.py
+Pass 2 Video Rendering and Broadcast Compositor.
+Renders player bounding boxes with identity badges, high-resolution ball tracking markers,
+decaying alpha motion trails, 2D top-down mini-court radar overlays, and telemetry HUD cards.
+"""
+
 from collections import deque
 import cv2
 import numpy as np
@@ -10,13 +17,22 @@ from src.config import (
 from src.mini_court.mini_court import MiniCourt
 
 
-def draw_player_box(frame, player_data, label: str, color: tuple):
-    """Draws a stylish bounding box and label badge for a player."""
+def draw_player_box(frame: np.ndarray, player_data: tuple | None, label: str, color: tuple):
+    """
+    Draws a styled bounding box and text badge for a tracked tennis player.
+
+    Args:
+        frame (np.ndarray): Video frame image array.
+        player_data (tuple, optional): (x1, y1, x2, y2, conf) tuple or None.
+        label (str): Player label (e.g. "Player 1" or "Player 2").
+        color (tuple): BGR color tuple for the bounding box.
+    """
     if player_data is None:
         return
     x1, y1, x2, y2, conf = player_data
     cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2, lineType=cv2.LINE_AA)
     
+    # Render label badge above the player bounding box
     text = f"{label} ({conf:.2f})"
     (tw, th), baseline = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 2)
     badge_y1 = max(y1 - th - 10, 5)
@@ -29,6 +45,13 @@ def draw_broadcast_hud(frame: np.ndarray, telemetry: dict, kinetics: dict, offse
     """
     Renders an expanded broadcast-grade telemetry HUD card in the top-left corner
     with match stats, ball speed, stroke type classification, and player physical exertion metrics.
+
+    Args:
+        frame (np.ndarray): Target video frame.
+        telemetry (dict): Current frame shot telemetry (rally count, stroke type, speed, line call).
+        kinetics (dict): Current frame player kinetics (sprint speeds, cumulative distance).
+        offset_x (int): Horizontal pixel offset from left edge.
+        offset_y (int): Vertical pixel offset from top edge.
     """
     card_w = 360
     card_h = 165
@@ -37,6 +60,7 @@ def draw_broadcast_hud(frame: np.ndarray, telemetry: dict, kinetics: dict, offse
     x2 = x1 + card_w
     y2 = y1 + card_h
 
+    # Semi-transparent dark glassmorphism card background
     sub_img = frame[y1:y2, x1:x2]
     dark_card = np.full(sub_img.shape, (25, 22, 18), dtype=np.uint8)
     blended = cv2.addWeighted(dark_card, 0.88, sub_img, 0.12, 0)
@@ -57,13 +81,13 @@ def draw_broadcast_hud(frame: np.ndarray, telemetry: dict, kinetics: dict, offse
         cv2.putText(frame, call, (x2 - 50, y1 + 27), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.50, (255, 255, 255), 2, lineType=cv2.LINE_AA)
 
-    # 3. Rally Counter Badge
+    # 3. Live Rally Counter Badge
     rally_count = telemetry.get('rally_count', 0)
     rally_text = f"RALLY: {rally_count} SHOTS"
     cv2.putText(frame, rally_text, (x1 + 14, y1 + 52), 
                 cv2.FONT_HERSHEY_SIMPLEX, 0.70, (0, 255, 255), 2, lineType=cv2.LINE_AA)
 
-    # 4. Ball Speed, Stroke Type & Attribution (Phase 6)
+    # 4. Ball Speed, Stroke Type & Player Attribution
     speed = telemetry.get('shot_speed_kmh', 0.0)
     hitter = telemetry.get('last_hitter', 'None')
     stroke = telemetry.get('stroke_type', 'SHOT')
@@ -78,7 +102,7 @@ def draw_broadcast_hud(frame: np.ndarray, telemetry: dict, kinetics: dict, offse
     # Divider Line
     cv2.line(frame, (x1 + 14, y1 + 94), (x2 - 14, y1 + 94), (55, 55, 55), 1)
 
-    # 5. Player Kinetic Exertion
+    # 5. Player Kinetic Exertion (Sprint Speeds & Cumulative Distance)
     p1_spd = kinetics.get('p1_speed_kmh', 0.0)
     p1_dist = kinetics.get('p1_dist_m', 0.0)
     p1_text = f"P1: {p1_spd:.1f} km/h | Dist: {p1_dist:.1f}m"
@@ -93,7 +117,15 @@ def draw_broadcast_hud(frame: np.ndarray, telemetry: dict, kinetics: dict, offse
 
 
 def overlay_radar_on_frame(frame: np.ndarray, radar_img: np.ndarray, offset_x: int = 30, offset_y: int = 30):
-    """Overlays the 2D Mini-Court radar with a semi-transparent border on the top-right corner."""
+    """
+    Overlays the 2D Mini-Court radar with a border on the top-right corner.
+
+    Args:
+        frame (np.ndarray): Primary video frame.
+        radar_img (np.ndarray): Rendered 2D mini-court radar canvas.
+        offset_x (int): Margin offset from right edge.
+        offset_y (int): Margin offset from top edge.
+    """
     rh, rw = radar_img.shape[:2]
     fh, fw = frame.shape[:2]
 
@@ -111,15 +143,28 @@ def overlay_radar_on_frame(frame: np.ndarray, radar_img: np.ndarray, offset_x: i
     frame[y1:y2, x1:x2] = blended
 
 
-def render_annotated_video(cap: cv2.VideoCapture, frame_detections: list, interpolated_balls: list, 
-                           roi_polygon_pixels, mini_court: MiniCourt, telemetry_per_frame: list,
-                           kinetics_per_frame: list, width: int, height: int, fps: int):
+def render_annotated_video(cap: cv2.VideoCapture, frame_detections: list[dict], interpolated_balls: list[tuple | None], 
+                           roi_polygon_pixels: np.ndarray, mini_court: MiniCourt, telemetry_per_frame: list[dict],
+                           kinetics_per_frame: list[dict], width: int, height: int, fps: int):
     """
-    Pass 2: Renders court ROI, persistent Player 1 & Player 2 boxes, ball markers,
-    trajectory trails, 2D Mini-Court radar, and the Expanded Kinetic Telemetry HUD.
+    Pass 2: Renders court ROI polygon, persistent player boxes, ball marker,
+    dynamic alpha motion trails, 2D Mini-Court radar, and the broadcast kinetics telemetry HUD.
+
+    Args:
+        cap (cv2.VideoCapture): Open video capture stream.
+        frame_detections (list[dict]): Pass 1 frame detection records.
+        interpolated_balls (list): Smoothed ball pixel coordinates.
+        roi_polygon_pixels (np.ndarray): Court boundary polygon vertices.
+        mini_court (MiniCourt): MiniCourt homography and radar engine.
+        telemetry_per_frame (list[dict]): Shot speeds, rally counts, and line calls.
+        kinetics_per_frame (list[dict]): Player running speeds and cumulative meters.
+        width (int): Video frame width.
+        height (int): Video frame height.
+        fps (int): Video frame rate.
     """
     print("\n--- Pass 2: Rendering Annotations, Kinetics HUD & 2D Mini-Court Radar ---")
     
+    # Rewind video capture to frame 0 for Pass 2 rendering
     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out = cv2.VideoWriter(OUTPUT_PATH, fourcc, fps, (width, height))
@@ -140,23 +185,31 @@ def render_annotated_video(cap: cv2.VideoCapture, frame_detections: list, interp
         telemetry = telemetry_per_frame[frame_idx] if frame_idx < len(telemetry_per_frame) else {}
         kinetics = kinetics_per_frame[frame_idx] if frame_idx < len(kinetics_per_frame) else {}
 
-        # 1. Reset trajectory on Scene Cut
+        # ----------------------------------------------------------------------
+        # 1. Reset trajectory trail on scene cuts
+        # ----------------------------------------------------------------------
         if detection_data.get('scene_cut', False):
             trajectory.clear()
             missing_counter = 0
 
-        # 2. Draw Subtle Court ROI overlay
+        # ----------------------------------------------------------------------
+        # 2. Draw subtle court ROI polygon overlay
+        # ----------------------------------------------------------------------
         if ENABLE_ROI_FILTER and roi_polygon_pixels is not None:
             cv2.polylines(frame, [roi_polygon_pixels], isClosed=True, color=(100, 255, 100), thickness=1, lineType=cv2.LINE_AA)
 
+        # ----------------------------------------------------------------------
         # 3. Draw Persistent Players (Player 1 & Player 2)
+        # ----------------------------------------------------------------------
         players = detection_data.get('players', {})
         p1_data = players.get('player_1')
         p2_data = players.get('player_2')
         draw_player_box(frame, p1_data, "Player 1", COLOR_P1)
         draw_player_box(frame, p2_data, "Player 2", COLOR_P2)
 
-        # 4. Draw Ball & Trajectory
+        # ----------------------------------------------------------------------
+        # 4. Draw Ball & Decaying Alpha Motion Trail
+        # ----------------------------------------------------------------------
         ball_pos = interpolated_balls[frame_idx]
         if ball_pos is not None:
             missing_counter = 0
@@ -183,7 +236,9 @@ def render_annotated_video(cap: cv2.VideoCapture, frame_detections: list, interp
             if missing_counter >= MAX_MISSING_FRAMES:
                 trajectory.clear()
 
+        # ----------------------------------------------------------------------
         # 5. Render 2D Mini-Court Radar Overlay
+        # ----------------------------------------------------------------------
         p1_feet = ((p1_data[0] + p1_data[2]) / 2.0, p1_data[3]) if p1_data else None
         p2_feet = ((p2_data[0] + p2_data[2]) / 2.0, p2_data[3]) if p2_data else None
 
@@ -195,10 +250,12 @@ def render_annotated_video(cap: cv2.VideoCapture, frame_detections: list, interp
         )
         overlay_radar_on_frame(frame, radar_img, offset_x=30, offset_y=30)
 
-        # 6. Render Broadcast Telemetry HUD Card with Stroke Badge
+        # ----------------------------------------------------------------------
+        # 6. Render Broadcast Telemetry HUD Card
+        # ----------------------------------------------------------------------
         draw_broadcast_hud(frame, telemetry, kinetics, offset_x=30, offset_y=30)
 
-        # Write annotated frame
+        # Write rendered frame to output video
         out.write(frame)
         frame_idx += 1
 

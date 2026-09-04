@@ -1,3 +1,11 @@
+"""
+main.py
+Single-Match Tennis Analytics Pipeline Entrypoint.
+Coordinates Pass 1 object detection, court keypoint extraction, homography computation,
+ball interpolation, biomechanical stroke analysis, player kinetics, report generation,
+and Pass 2 broadcast video composition.
+"""
+
 import os
 import shutil
 import cv2
@@ -18,17 +26,32 @@ from src.analysis.report_generator import MatchReportGenerator
 
 
 def resolve_video_input() -> str:
-    """Checks data/inputs/input.mp4 or root input.mp4 fallback."""
+    """
+    Resolves the input match video path from data/inputs/input.mp4 or root input.mp4 fallback.
+
+    Returns:
+        str: Absolute or relative path to the verified input video file.
+    """
     if os.path.exists(VIDEO_PATH):
         return VIDEO_PATH
     if os.path.exists('input.mp4'):
-        # Auto-copy to data/inputs/ for cleanliness
+        # Auto-copy root input.mp4 to data/inputs/ for organized folder structure
         shutil.copy('input.mp4', VIDEO_PATH)
         return VIDEO_PATH
     return VIDEO_PATH
 
 
 def main():
+    """
+    Main pipeline controller orchestrating:
+    - Step 0: Directory structure verification
+    - Step 1: Model loading & Video stream initialization
+    - Step 2: Court keypoint detection & Homography matrix computation
+    - Step 3: Pass 1 feature extraction & bounded trajectory interpolation
+    - Step 4: Biomechanical shot detection, speeds, and player kinetics
+    - Step 5: Report generation (JSON & standalone HTML)
+    - Step 6: Pass 2 visual rendering & video export
+    """
     # 0. Ensure dedicated directory structure exists
     ensure_directories()
     video_input_file = resolve_video_input()

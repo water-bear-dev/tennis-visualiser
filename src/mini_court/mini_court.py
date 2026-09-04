@@ -1,3 +1,10 @@
+"""
+src/mini_court/mini_court.py
+2D Mini-Court Radar and Perspective Homography Engine.
+Computes perspective transformation matrices mapping broadcast video camera pixels
+to top-down 2D canvas coordinates and official ITF metric meter measurements (23.77m x 10.97m).
+"""
+
 import cv2
 import numpy as np
 
@@ -16,21 +23,34 @@ class MiniCourt:
     SERVICE_LINE_DIST_M = 6.40
 
     def __init__(self, canvas_width: int = 220, canvas_height: int = 420, margin: int = 16):
+        """
+        Initializes the MiniCourt engine.
+
+        Args:
+            canvas_width (int): Pixel width of the rendered mini-court radar HUD card.
+            canvas_height (int): Pixel height of the rendered mini-court radar HUD card.
+            margin (int): Boundary padding around the painted court lines.
+        """
         self.canvas_width = canvas_width
         self.canvas_height = canvas_height
         self.margin = margin
 
-        # Usable court drawing dimensions
+        # Usable court drawing dimensions within the padded radar canvas
         self.court_w = self.canvas_width - 2 * self.margin
         self.court_h = self.canvas_height - 2 * self.margin
 
         # Mini-court metric keypoints in canvas pixels
         self.mini_keypoints = self._generate_mini_court_keypoints()
-        self.homography_matrix = None
-        self.metric_homography_matrix = None
+        self.homography_matrix = None          # Video Pixels -> Radar Canvas Pixels
+        self.metric_homography_matrix = None   # Video Pixels -> Real-World Meters
 
     def _generate_mini_court_keypoints(self) -> np.ndarray:
-        """Generates the 14 standard keypoint coordinates on the 2D canvas."""
+        """
+        Generates the 14 standard keypoint coordinates on the 2D radar canvas.
+
+        Returns:
+            np.ndarray: Array of shape (14, 2) in canvas pixel space.
+        """
         m_x = self.margin
         m_y = self.margin
         cw = self.court_w
@@ -68,6 +88,9 @@ class MiniCourt:
         """
         Generates official ITF keypoint coordinates in metric meters:
         Origin (0,0) is top-left doubles corner. Court spans [0, 10.97] in X and [0, 23.77] in Y.
+
+        Returns:
+            np.ndarray: Array of shape (14, 2) in meter units.
         """
         W = self.COURT_WIDTH_M
         L = self.COURT_LENGTH_M
@@ -96,7 +119,12 @@ class MiniCourt:
         ], dtype=np.float32)
 
     def compute_homography(self, video_keypoints: np.ndarray):
-        """Computes homography transformation matrices for canvas pixels and real-world meters."""
+        """
+        Computes homography transformation matrices for both canvas pixels and real-world meters using RANSAC.
+
+        Args:
+            video_keypoints (np.ndarray): 14 court keypoints in camera pixel coordinates.
+        """
         src_pts = video_keypoints[:14]
         
         # 1. Video pixels -> 2D Mini-Court Canvas Pixels
@@ -109,8 +137,16 @@ class MiniCourt:
         H_metric, _ = cv2.findHomography(src_pts, dst_metric, cv2.RANSAC, 5.0)
         self.metric_homography_matrix = H_metric
 
-    def project_point(self, point: tuple) -> tuple | None:
-        """Projects a (x, y) video coordinate onto the mini-court (x', y')."""
+    def project_point(self, point: tuple[float, float]) -> tuple[int, int] | None:
+        """
+        Projects a (x, y) video pixel coordinate onto the 2D mini-court radar canvas.
+
+        Args:
+            point (tuple): Camera (x, y) coordinate.
+
+        Returns:
+            tuple[int, int] | None: Transformed (x', y') coordinate on the mini-court canvas, or None.
+        """
         if self.homography_matrix is None or point is None:
             return None
         pt_in = np.array([[[float(point[0]), float(point[1])]]], dtype=np.float32)
@@ -121,8 +157,16 @@ class MiniCourt:
             return (int(round(x_out)), int(round(y_out)))
         return None
 
-    def project_point_to_meters(self, point: tuple) -> tuple | None:
-        """Projects a (x, y) video pixel coordinate into real-world court meters (X, Y)."""
+    def project_point_to_meters(self, point: tuple[float, float]) -> tuple[float, float] | None:
+        """
+        Projects a (x, y) video pixel coordinate into real-world court meters (X, Y).
+
+        Args:
+            point (tuple): Camera (x, y) coordinate.
+
+        Returns:
+            tuple[float, float] | None: Transformed coordinate in meters [0-10.97m, 0-23.77m].
+        """
         if self.metric_homography_matrix is None or point is None:
             return None
         pt_in = np.array([[[float(point[0]), float(point[1])]]], dtype=np.float32)
@@ -131,7 +175,12 @@ class MiniCourt:
         return (float(x_m), float(y_m))
 
     def draw_court_lines(self, canvas: np.ndarray):
-        """Draws clean, modern 2D tennis court lines on the canvas."""
+        """
+        Draws 2D tennis court boundary lines, service boxes, and net on the canvas.
+
+        Args:
+            canvas (np.ndarray): 3-channel BGR radar canvas image.
+        """
         color = (255, 255, 255)
         m_x = self.margin
         m_y = self.margin
@@ -153,12 +202,21 @@ class MiniCourt:
         # 4. Center Service Line
         cv2.line(canvas, (int(kps[5][0]), int(kps[5][1])), (int(kps[11][0]), int(kps[11][1])), color, 1)
 
-        # 5. Net Line
+        # 5. Net Line (Highlighted in yellow)
         cv2.line(canvas, (m_x - 4, int(kps[7][1])), (m_x + cw + 4, int(kps[9][1])), (0, 255, 255), 2)
 
-    def render_radar(self, p1_pos=None, p2_pos=None, ball_pos=None, ball_trajectory=None) -> np.ndarray:
+    def render_radar(self, p1_pos: tuple = None, p2_pos: tuple = None, ball_pos: tuple = None, ball_trajectory: list = None) -> np.ndarray:
         """
-        Renders the complete 2D radar image with player dots, ball marker, and trajectory.
+        Renders the complete 2D radar image with player markers, ball dot, and motion trails.
+
+        Args:
+            p1_pos (tuple, optional): Feet coordinate of Player 1.
+            p2_pos (tuple, optional): Feet coordinate of Player 2.
+            ball_pos (tuple, optional): Current ball coordinate.
+            ball_trajectory (list, optional): Historical list of ball coordinates for trail drawing.
+
+        Returns:
+            np.ndarray: Rendered BGR image array of the 2D radar.
         """
         canvas = np.full((self.canvas_height, self.canvas_width, 3), (35, 30, 25), dtype=np.uint8)
         cv2.rectangle(canvas, (self.margin, self.margin), 
@@ -174,14 +232,14 @@ class MiniCourt:
             for i in range(1, len(mini_trail)):
                 cv2.line(canvas, mini_trail[i - 1], mini_trail[i], (0, 255, 255), 2, lineType=cv2.LINE_AA)
 
-        # 2. Draw Ball
+        # 2. Draw Ball Marker
         if ball_pos is not None:
             mini_ball = self.project_point(ball_pos)
             if mini_ball:
                 cv2.circle(canvas, mini_ball, 5, (0, 255, 255), -1, lineType=cv2.LINE_AA)
                 cv2.circle(canvas, mini_ball, 8, (0, 200, 255), 1, lineType=cv2.LINE_AA)
 
-        # 3. Draw Players
+        # 3. Draw Players (P1: Orange/Gold, P2: Blue/Cyan)
         if p1_pos is not None:
             mini_p1 = self.project_point(p1_pos)
             if mini_p1:

@@ -1,18 +1,36 @@
+"""
+src/analysis/llm_scout.py
+Local LLM-Powered Tactical Scouting and Coaching Report Engine.
+Connects to local Qwen 2.5 via Ollama REST API to transform structured match telemetry
+into an executive narrative tactical coaching breakdown and game plan directives.
+"""
+
 import argparse
 import json
 import os
 import sys
 import requests
 
+# Add project root to system path for configuration imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from src.config import MATCH_SUMMARY_PATH, ANALYSIS_DIR
 
+# Ollama local inference endpoint & default model
 OLLAMA_API_URL = "http://127.0.0.1:11434/api/generate"
 DEFAULT_MODEL = "qwen2.5:7b-instruct"
 
 
 def query_ollama(prompt: str, model: str = DEFAULT_MODEL) -> str:
-    """Queries local Ollama instance with tactical tennis analysis prompt."""
+    """
+    Sends a generation prompt payload to the local Ollama API instance.
+
+    Args:
+        prompt (str): Detailed instruction and match context prompt.
+        model (str): Target Ollama model name (default: qwen2.5:7b-instruct).
+
+    Returns:
+        str: Model text response, or descriptive error message.
+    """
     payload = {
         "model": model,
         "prompt": prompt,
@@ -37,6 +55,13 @@ def generate_scouting_report(summary_path: str = MATCH_SUMMARY_PATH,
     """
     Ingests match telemetry summary and prompts local Qwen model to generate
     an executive pro-level tennis scouting & coaching report.
+
+    Args:
+        summary_path (str): File path to input match_summary.json.
+        model (str): Ollama model name to query.
+
+    Returns:
+        str: Generated narrative scouting report.
     """
     print(f"\n=======================================================")
     print(f"🎾 AI Match & Tactical Scouting Engine (Powered by {model})")
@@ -49,6 +74,7 @@ def generate_scouting_report(summary_path: str = MATCH_SUMMARY_PATH,
     with open(summary_path, 'r') as f:
         match_data = json.load(f)
 
+    # Construct prompt with structured match telemetry and role instruction
     prompt = f"""You are an elite ATP/WTA Tour Tennis Coach and Tactical Data Analyst.
 
 Analyze the following structured match telemetry and produce an executive tactical coaching breakdown:
@@ -74,7 +100,7 @@ Use clear, professional tennis terminology (e.g. rally tolerance, court depth, c
     print(scouting_report)
     print("---------------------------------\n")
 
-    # Save scouting report
+    # Save scouting report markdown artifact to data/analysis/
     report_file = os.path.join(ANALYSIS_DIR, "tactical_scouting_report.md")
     with open(report_file, "w") as f:
         f.write(f"# Professional Tennis Tactical & Scouting Report\n\n**Analyst:** {model}\n\n{scouting_report}\n")

@@ -1,3 +1,10 @@
+"""
+batch_process.py
+Multi-Match Batch Processing and Tournament Aggregator.
+Iterates over all video files in data/inputs/, executes the end-to-end tennis analytics pipeline on each,
+and compiles an aggregated tournament_summary.json.
+"""
+
 import glob
 import json
 import os
@@ -20,7 +27,16 @@ from src.analysis.report_generator import MatchReportGenerator
 
 
 def process_single_video(video_path: str, model) -> dict:
-    """Processes a single tennis match video through the full analytics pipeline."""
+    """
+    Processes a single tennis match video through the full analytics pipeline.
+
+    Args:
+        video_path (str): File path to the match video.
+        model: Pre-loaded YOLO detector instance.
+
+    Returns:
+        dict: High-level match statistics summary dictionary.
+    """
     vid_stem = os.path.splitext(os.path.basename(video_path))[0]
     out_video_path = os.path.join(OUTPUT_DIR, f"{vid_stem}_annotated.mp4")
     summary_json_path = os.path.join(ANALYSIS_DIR, f"{vid_stem}_summary.json")

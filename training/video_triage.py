@@ -1,3 +1,10 @@
+"""
+training/video_triage.py
+Smart VLM Video Triage and Active Rally Segmentation.
+Scans raw broadcast tennis footage and uses local Moondream vision model to classify
+frames into active live rallies vs. non-play segments (crowd, breaks, close-ups, replays).
+"""
+
 import argparse
 import base64
 import json
@@ -14,7 +21,15 @@ DEFAULT_VISION_MODEL = "moondream"
 
 
 def encode_image_to_base64(image_mat) -> str:
-    """Encodes OpenCV image numpy array to base64 jpeg string."""
+    """
+    Encodes OpenCV image numpy array to base64 jpeg string.
+
+    Args:
+        image_mat (np.ndarray): Video frame image array.
+
+    Returns:
+        str: Base64 UTF-8 encoded string.
+    """
     success, buffer = cv2.imencode('.jpg', image_mat)
     if not success:
         return ""

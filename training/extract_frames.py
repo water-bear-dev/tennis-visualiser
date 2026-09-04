@@ -1,3 +1,10 @@
+"""
+training/extract_frames.py
+Multi-Video Frame Harvester.
+Scans data/inputs/ for match video footage and extracts sampled training frames
+at configurable sampling frequencies into the training/dataset/images/ repository.
+"""
+
 import argparse
 import glob
 import os
@@ -12,11 +19,16 @@ def extract_frames_from_videos(input_dir: str = INPUT_DIR, output_dir: str = 'tr
                                sample_rate: int = 5, max_frames_per_video: int = 400):
     """
     Extracts sampled frames from all .mp4 videos in the input directory.
-    - sample_rate: extract every Nth frame (e.g. 5 = ~6 frames/sec from 30fps video)
+
+    Args:
+        input_dir (str): Folder containing raw .mp4 match videos.
+        output_dir (str): Target folder to write extracted .jpg images.
+        sample_rate (int): Extract every Nth frame (e.g. 5 = ~6 frames/sec from 30fps video).
+        max_frames_per_video (int): Maximum frames to harvest per video file to maintain class balance.
     """
     os.makedirs(output_dir, exist_ok=True)
     video_files = sorted(glob.glob(os.path.join(input_dir, '*.mp4')) + glob.glob('*.mp4'))
-    video_files = list(dict.fromkeys(video_files))  # remove duplicates
+    video_files = list(dict.fromkeys(video_files))  # Deduplicate matching files
 
     if not video_files:
         print(f"No .mp4 video files found in '{input_dir}' or project root.")

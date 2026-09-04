@@ -1,3 +1,10 @@
+"""
+training/train_ball_detector.py
+Custom YOLOv8 Tennis Ball Model Training & MLOps Fine-Tuning CLI.
+Fine-tunes YOLOv8 backbones on custom multi-video datasets and automatically
+deploys the top-performing checkpoint (runs/.../best.pt) directly to 'best_tennis.pt'.
+"""
+
 import argparse
 import os
 import shutil
@@ -16,6 +23,13 @@ def train_ball_detector(data_yaml: str = 'training/dataset/data.yaml',
     """
     Trains a custom YOLOv8 model for high-resolution tennis ball detection
     and automatically deploys the best checkpoint as 'best_tennis.pt'.
+
+    Args:
+        data_yaml (str): Path to data.yaml dataset definition.
+        epochs (int): Number of training iterations.
+        batch_size (int): Training batch size.
+        base_model (str): Base checkpoint to fine-tune from (e.g. yolov8n.pt).
+        imgsz (int): Resolution for training inference.
     """
     if not os.path.exists(data_yaml):
         print(f"Error: Dataset config '{data_yaml}' not found.")

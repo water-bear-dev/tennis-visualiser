@@ -1,3 +1,10 @@
+"""
+training/train_diagnostics.py
+AI Model Training Diagnostics Copilot.
+Parses YOLOv8 results.csv metrics (Box Loss, Class Loss, mAP50, mAP50-95) and invokes
+local Qwen 2.5 via Ollama to produce a technical convergence assessment and optimization recommendations.
+"""
+
 import argparse
 import json
 import os
@@ -12,7 +19,16 @@ DEFAULT_MODEL = "qwen2.5:7b-instruct"
 
 
 def query_ollama(prompt: str, model: str = DEFAULT_MODEL) -> str:
-    """Sends a completion request to local Ollama instance."""
+    """
+    Sends a completion request to the local Ollama instance.
+
+    Args:
+        prompt (str): Diagnostic context and instructions prompt.
+        model (str): Target Ollama model name.
+
+    Returns:
+        str: Model response or error message.
+    """
     payload = {
         "model": model,
         "prompt": prompt,

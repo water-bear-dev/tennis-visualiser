@@ -1,3 +1,10 @@
+"""
+src/analysis/report_generator.py
+Match Telemetry and HTML Report Generation Module.
+Compiles high-level rally statistics, speed distributions, player physical exertion metrics,
+embeds Base64 court heatmaps, and writes structured JSON and standalone dark-mode HTML reports.
+"""
+
 import base64
 import json
 import os
@@ -14,18 +21,39 @@ class MatchReportGenerator:
     """
 
     def __init__(self, fps: int = 30):
+        """
+        Initializes the report generator.
+
+        Args:
+            fps (int): Video frame rate for time calculations.
+        """
         self.fps = fps
         self.coaching_generator = CoachingInsightsGenerator()
 
     def _encode_image_base64(self, filepath: str) -> str:
-        """Reads an image file and encodes it as base64 string for standalone HTML embedding."""
+        """
+        Reads an image file from disk and encodes it into a Base64 string for embedding directly in standalone HTML.
+
+        Args:
+            filepath (str): Absolute or relative image path.
+
+        Returns:
+            str: Base64 UTF-8 encoded image string, or empty string if file missing.
+        """
         if os.path.exists(filepath):
             with open(filepath, 'rb') as f:
                 return base64.b64encode(f.read()).decode('utf-8')
         return ""
 
-    def generate_report(self, frame_detections: list, telemetry_per_frame: list, kinetics_per_frame: list):
-        """Processes telemetry streams and exports JSON and HTML reports to data/analysis/."""
+    def generate_report(self, frame_detections: list[dict], telemetry_per_frame: list[dict], kinetics_per_frame: list[dict]):
+        """
+        Processes telemetry streams and exports JSON and HTML reports to data/analysis/.
+
+        Args:
+            frame_detections (list[dict]): Pass 1 frame detections.
+            telemetry_per_frame (list[dict]): Shot speeds, rally counts, and line calls.
+            kinetics_per_frame (list[dict]): Player running speeds and cumulative meters.
+        """
         print("\n--- Phase 5 & 6: Generating Match Reports & AI Coaching Insights ---")
         total_frames = len(frame_detections)
         duration_s = total_frames / float(self.fps)

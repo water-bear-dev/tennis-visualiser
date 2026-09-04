@@ -1,3 +1,10 @@
+"""
+app.py
+Interactive Streamlit Web Dashboard and Coaching Analytics Platform.
+Provides a multi-tab web interface for video review, head-to-head metrics, AI tactical coaching,
+2D spatial court heatmaps, and multi-match tournament summaries.
+"""
+
 import json
 import os
 import streamlit as st
@@ -12,7 +19,7 @@ from src.config import (
     ANALYSIS_DIR
 )
 
-# Page Configuration
+# Set page layout, theme title, and sidebar state
 st.set_page_config(
     page_title="AI Tennis Match Analytics & Coaching",
     page_icon="🎾",

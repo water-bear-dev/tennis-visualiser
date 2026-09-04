@@ -1,3 +1,10 @@
+"""
+training/auto_label.py
+Semi-Supervised Auto-Labeling and Dataset Generation Engine.
+Runs high-resolution YOLO inference with strict court ROI filtering, writes normalized YOLO .txt annotations,
+samples empty negative frames to teach the network background characteristics, and generates data.yaml.
+"""
+
 import glob
 import os
 import random
@@ -23,6 +30,11 @@ def auto_label_dataset(images_dir: str = 'training/dataset/images',
     """
     Runs high-confidence inference on extracted images, generates YOLO format labels,
     splits data into train/val sets, and writes data.yaml.
+
+    Args:
+        images_dir (str): Folder containing raw extracted .jpg frames.
+        dataset_dir (str): Root dataset folder for YOLO formatted images and labels.
+        val_split (float): Validation split ratio (default 0.20 for 80/20 train/val).
     """
     image_files = sorted(glob.glob(os.path.join(images_dir, '*.jpg')) + glob.glob(os.path.join(images_dir, '*.png')))
     if not image_files:

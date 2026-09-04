@@ -1,3 +1,10 @@
+"""
+training/vlm_verifier.py
+Local VLM (Vision-Language Model) Active Label Auditor.
+Connects to local Moondream vision model via Ollama to audit candidate ball crops,
+pruning ambiguous false positives (court marks, shoes, racket frames) from the training dataset.
+"""
+
 import argparse
 import base64
 import json
@@ -13,7 +20,15 @@ DEFAULT_VISION_MODEL = "moondream"
 
 
 def encode_image_to_base64(image_mat) -> str:
-    """Encodes OpenCV image numpy array to base64 jpeg string."""
+    """
+    Encodes OpenCV image numpy array to base64 jpeg string.
+
+    Args:
+        image_mat (np.ndarray): Cropped candidate bounding box image.
+
+    Returns:
+        str: Base64 UTF-8 encoded string.
+    """
     success, buffer = cv2.imencode('.jpg', image_mat)
     if not success:
         return ""

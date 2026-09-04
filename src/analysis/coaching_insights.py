@@ -1,3 +1,10 @@
+"""
+src/analysis/coaching_insights.py
+Automated AI Coaching Insights and Tactical Profiling Engine.
+Synthesizes stroke distribution, court coverage metrics, sprint bursts, and rally dynamics
+into actionable coaching recommendations and match tempo assessments.
+"""
+
 import math
 import numpy as np
 
@@ -9,18 +16,32 @@ class CoachingInsightsGenerator:
     """
 
     def __init__(self):
+        """Initializes the coaching insights generator."""
         pass
 
-    def generate_coaching_report(self, match_summary: dict, telemetry_per_frame: list) -> dict:
+    def generate_coaching_report(self, match_summary: dict, telemetry_per_frame: list[dict]) -> dict:
         """
         Synthesizes technical and tactical coaching insights from match metrics.
+
+        Args:
+            match_summary (dict): High-level statistical match summary dictionary.
+            telemetry_per_frame (list[dict]): Full per-frame telemetry history from shot detection.
+
+        Returns:
+            dict: Structured coaching intelligence report containing:
+                - 'match_tempo_assessment' (str): Tactical pace classification.
+                - 'stroke_breakdown' (dict): Forehand/Backhand/Serve/Volley counts for P1 & P2.
+                - 'player_1_tactical_insights' (list[str]): Actionable coaching recommendations for P1.
+                - 'player_2_tactical_insights' (list[str]): Actionable coaching recommendations for P2.
         """
         p1 = match_summary.get("player_1_near_court", {})
         p2 = match_summary.get("player_2_far_court", {})
         ball = match_summary.get("ball_metrics", {})
         overview = match_summary.get("match_overview", {})
 
-        # 1. Stroke Distribution
+        # ----------------------------------------------------------------------
+        # 1. Aggregate Stroke Distribution per Player
+        # ----------------------------------------------------------------------
         strokes_p1 = {"FOREHAND": 0, "BACKHAND": 0, "SERVE": 0, "VOLLEY": 0}
         strokes_p2 = {"FOREHAND": 0, "BACKHAND": 0, "SERVE": 0, "VOLLEY": 0}
 
@@ -33,7 +54,9 @@ class CoachingInsightsGenerator:
                 elif hitter == "Player 2":
                     strokes_p2[st_type] = strokes_p2.get(st_type, 0) + 1
 
-        # 2. Key Tactical Heuristics
+        # ----------------------------------------------------------------------
+        # 2. Extract Key Tactical Heuristics & Metrics
+        # ----------------------------------------------------------------------
         p1_dist = p1.get('total_distance_meters', 0.0)
         p2_dist = p2.get('total_distance_meters', 0.0)
         p1_speed = p1.get('peak_running_speed_kmh', 0.0)
@@ -44,7 +67,9 @@ class CoachingInsightsGenerator:
         p1_advice = []
         p2_advice = []
 
-        # Player 1 Analysis
+        # ----------------------------------------------------------------------
+        # Player 1 Tactical Analysis
+        # ----------------------------------------------------------------------
         if strokes_p1.get('FOREHAND', 0) > strokes_p1.get('BACKHAND', 0) * 1.5:
             p1_advice.append("Heavy Forehand Bias: Strong tactical tendency to dictate play on the forehand wing.")
         else:
@@ -58,7 +83,9 @@ class CoachingInsightsGenerator:
         if strokes_p1.get('VOLLEY', 0) >= 2:
             p1_advice.append("Aggressive Net Transition: Successfully transitioned into the forecourt for finishing volleys.")
 
-        # Player 2 Analysis
+        # ----------------------------------------------------------------------
+        # Player 2 Tactical Analysis
+        # ----------------------------------------------------------------------
         if strokes_p2.get('FOREHAND', 0) > strokes_p2.get('BACKHAND', 0) * 1.5:
             p2_advice.append("Forehand Dominance: Aggressive offensive patterns created when attacking off the forehand.")
         else:
@@ -69,7 +96,9 @@ class CoachingInsightsGenerator:
         else:
             p2_advice.append("Steady Recovery Pace: Good baseline anchoring during extended rallies.")
 
-        # Match Tempo Insight
+        # ----------------------------------------------------------------------
+        # Match Tempo & Style Classification
+        # ----------------------------------------------------------------------
         avg_rally = overview.get('longest_rally_shots', 1)
         if avg_rally > 8:
             tempo = "High-Endurance Baseline War (Extended rallies with heavy baseline exchanges)."
