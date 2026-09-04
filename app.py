@@ -5,6 +5,7 @@ Provides a multi-tab web interface for video review, head-to-head metrics, AI ta
 2D spatial court heatmaps, and multi-match tournament summaries.
 """
 
+import glob
 import json
 import os
 import streamlit as st
@@ -16,6 +17,8 @@ from src.config import (
     HEATMAP_P1_PATH,
     HEATMAP_P2_PATH,
     OUTPUT_PATH,
+    OUTPUT_DIR,
+    INPUT_DIR,
     ANALYSIS_DIR
 )
 
@@ -55,9 +58,27 @@ st.title("🎾 AI Tennis Visualiser & Coaching Intelligence")
 st.markdown("Automated match tracking, kinematic stroke classification, and AI tactical coaching reports.")
 
 # --- Sidebar Controls ---
-st.sidebar.header("⚙️ Match & Model Configuration")
+st.sidebar.header("⚙️ Match & Video Selection")
 
-uploaded_video = st.sidebar.file_uploader("Upload Match Footage (MP4)", type=["mp4"])
+# Discover all available annotated videos in data/outputs/ and root
+available_output_videos = sorted(glob.glob(os.path.join(OUTPUT_DIR, '*.mp4')) + glob.glob('output*.mp4'))
+available_output_videos = list(dict.fromkeys(available_output_videos))
+
+selected_video_path = None
+if available_output_videos:
+    selected_video_name = st.sidebar.selectbox(
+        "Select Processed Match Video",
+        options=[os.path.basename(p) for p in available_output_videos],
+        index=0
+    )
+    for p in available_output_videos:
+        if os.path.basename(p) == selected_video_name:
+            selected_video_path = p
+            break
+else:
+    st.sidebar.info("No processed videos found yet in `data/outputs/`. Run `python main.py` or `python batch_process.py`.")
+
+uploaded_video = st.sidebar.file_uploader("Or Upload New Match (MP4)", type=["mp4"])
 ball_conf = st.sidebar.slider("Ball Confidence Threshold", 0.05, 0.50, 0.08, 0.01)
 person_conf = st.sidebar.slider("Player Confidence Threshold", 0.10, 0.80, 0.40, 0.05)
 enable_roi = st.sidebar.checkbox("Enable Court ROI Filter", value=True)
@@ -65,13 +86,21 @@ enable_roi = st.sidebar.checkbox("Enable Court ROI Filter", value=True)
 st.sidebar.markdown("---")
 st.sidebar.header("📁 Export & Downloads")
 
-if os.path.exists(MATCH_SUMMARY_PATH):
-    with open(MATCH_SUMMARY_PATH, "r") as f:
+# Resolve corresponding summary JSON
+current_summary_path = MATCH_SUMMARY_PATH
+if selected_video_path:
+    stem = os.path.splitext(os.path.basename(selected_video_path))[0].replace('_annotated', '')
+    candidate_summary = os.path.join(ANALYSIS_DIR, f"{stem}_summary.json")
+    if os.path.exists(candidate_summary):
+        current_summary_path = candidate_summary
+
+if os.path.exists(current_summary_path):
+    with open(current_summary_path, "r") as f:
         json_data = f.read()
     st.sidebar.download_button(
         label="📥 Download match_summary.json",
         data=json_data,
-        file_name="match_summary.json",
+        file_name=os.path.basename(current_summary_path),
         mime="application/json"
     )
 
@@ -87,8 +116,8 @@ if os.path.exists(MATCH_REPORT_PATH):
 
 # --- Load Match Summary ---
 match_data = {}
-if os.path.exists(MATCH_SUMMARY_PATH):
-    with open(MATCH_SUMMARY_PATH, "r") as f:
+if os.path.exists(current_summary_path):
+    with open(current_summary_path, "r") as f:
         match_data = json.load(f)
 
 overview = match_data.get("match_overview", {})
@@ -140,12 +169,18 @@ tab_video, tab_coaching, tab_heatmaps, tab_tournament = st.tabs([
 with tab_video:
     vid_col, stats_col = st.columns([2, 1])
     with vid_col:
-        if os.path.exists(OUTPUT_PATH):
+        if uploaded_video is not None:
+            st.video(uploaded_video)
+            st.success(f"Loaded uploaded video: {uploaded_video.name}")
+        elif selected_video_path and os.path.exists(selected_video_path):
+            st.video(selected_video_path)
+            st.caption(f"Playing: `{selected_video_path}`")
+        elif os.path.exists(OUTPUT_PATH):
             st.video(OUTPUT_PATH)
         elif os.path.exists("output.mp4"):
             st.video("output.mp4")
         else:
-            st.info("Run `python main.py` to generate annotated video in `data/outputs/`.")
+            st.info("Run `python main.py` or `python batch_process.py` to generate annotated videos in `data/outputs/`.")
 
     with stats_col:
         st.markdown("### ⚔️ Player Head-to-Head")

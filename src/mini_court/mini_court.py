@@ -125,7 +125,7 @@ class MiniCourt:
         Args:
             video_keypoints (np.ndarray): 14 court keypoints in camera pixel coordinates.
         """
-        src_pts = video_keypoints[:14]
+        src_pts = np.asarray(video_keypoints[:14], dtype=np.float32)
         
         # 1. Video pixels -> 2D Mini-Court Canvas Pixels
         dst_canvas = self.mini_keypoints[:14]

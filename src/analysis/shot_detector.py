@@ -57,10 +57,39 @@ class ShotDetector:
         return ((self.SINGLES_X_MIN - margin) <= x_m <= (self.SINGLES_X_MAX + margin) and
                 (self.COURT_Y_MIN - margin) <= y_m <= (self.COURT_Y_MAX + margin))
 
+    def _smooth_trajectory(self, metric_balls: list[tuple[float, float] | None], window_size: int = 5) -> list[tuple[float, float] | None]:
+        """
+        Applies a moving average smoothing filter to metric ball coordinates
+        across continuous tracking segments to eliminate micro-jitter.
+        """
+        total = len(metric_balls)
+        smoothed = [None] * total
+        half_w = window_size // 2
+
+        for i in range(total):
+            if metric_balls[i] is None:
+                continue
+
+            # Collect neighboring non-None coordinates within window
+            window_pts = []
+            for offset in range(-half_w, half_w + 1):
+                idx = i + offset
+                if 0 <= idx < total and metric_balls[idx] is not None:
+                    window_pts.append(metric_balls[idx])
+
+            if window_pts:
+                avg_x = sum(p[0] for p in window_pts) / len(window_pts)
+                avg_y = sum(p[1] for p in window_pts) / len(window_pts)
+                smoothed[i] = (avg_x, avg_y)
+            else:
+                smoothed[i] = metric_balls[i]
+
+        return smoothed
+
     def analyze_rally_and_shots(self, frame_detections: list[dict], interpolated_balls: list[tuple | None]) -> list[dict]:
         """
         Processes the sequence of frames to compute shot events, stroke types, speed in km/h,
-        bounce events, in/out calling, and live rally counts.
+        bounce events, in/out calling, and live rally counts using a robust hit-validation state machine.
 
         Args:
             frame_detections (list[dict]): Pass 1 frame detection records.
@@ -78,49 +107,133 @@ class ShotDetector:
         print("\n--- Phase 3 & 6: Analyzing Shot Events, Stroke Classification & Rally Metrics ---")
         total_frames = len(frame_detections)
         telemetry_per_frame = []
+        net_y_metric = MiniCourt.COURT_LENGTH_M / 2.0  # Net line in meters (~11.885m)
 
         # ----------------------------------------------------------------------
-        # 1. Project Ball Positions to Real-World Metric Court (Meters)
+        # 1. Project Ball Positions to Real-World Metric Court (Meters) & Smooth
         # ----------------------------------------------------------------------
-        metric_balls = [
+        raw_metric_balls = [
             self.mini_court.project_point_to_meters(b) if b is not None else None
             for b in interpolated_balls
         ]
+        metric_balls = self._smooth_trajectory(raw_metric_balls, window_size=5)
 
         # ----------------------------------------------------------------------
-        # 2. Identify Hit Frames (Inflection / direction change in Y)
+        # 2. Hit-Validation State Machine with Alternating Net Crossing & Cooldown
         # ----------------------------------------------------------------------
         hit_frames = {}
+        last_hit_player = None
+        last_hit_frame = -100
+        has_crossed_net = True  # Allows initial rally serve/shot
+        DEBOUNCE_COOLDOWN_FRAMES = 25  # Minimum refractory cooldown (~0.8-1.0s)
+        PLAYER_PROXIMITY_MAX_M = 3.8    # Max spatial distance between player and ball for hit
 
-        # Look for direction changes across rolling 4-frame windows
+        # Pre-compute player metric positions
+        player_metric_positions = []
+        for det in frame_detections:
+            players = det.get('players', {})
+            p1_box = players.get('player_1')
+            p2_box = players.get('player_2')
+
+            p1_m = None
+            if p1_box is not None:
+                feet_px = ((p1_box[0] + p1_box[2]) / 2.0, float(p1_box[3]))
+                p1_m = self.mini_court.project_point_to_meters(feet_px)
+
+            p2_m = None
+            if p2_box is not None:
+                feet_px = ((p2_box[0] + p2_box[2]) / 2.0, float(p2_box[3]))
+                p2_m = self.mini_court.project_point_to_meters(feet_px)
+
+            player_metric_positions.append({'player_1': p1_m, 'player_2': p2_m})
+
+        # Scan frames and validate hit events
         for i in range(3, total_frames - 3):
-            b_prev = metric_balls[i - 3]
-            b_curr = metric_balls[i]
-            b_next = metric_balls[i + 3]
-
-            if b_prev is None or b_curr is None or b_next is None:
+            # Check scene cut reset
+            if frame_detections[i].get('scene_cut', False):
+                last_hit_player = None
+                last_hit_frame = -100
+                has_crossed_net = True
                 continue
 
-            # Calculate Y-velocity delta before and after current frame
-            vy_before = (b_curr[1] - b_prev[1])
-            vy_after = (b_next[1] - b_curr[1])
+            b_curr = metric_balls[i]
+            if b_curr is None:
+                continue
 
-            # Direction reversal on court Y-axis (product is negative)
-            if (vy_before * vy_after < 0) and abs(vy_before - vy_after) > 0.25:
-                # Debounce hits: enforce minimum 12-frame gap between consecutive shots
-                recent_hits = [h for h in hit_frames.keys() if abs(i - h) < 12]
-                if not recent_hits:
-                    det = frame_detections[i]
-                    players = det.get('players', {})
-                    # Determine hitter based on court side relative to net line
-                    hitter = "Player 1" if b_curr[1] > (MiniCourt.COURT_LENGTH_M / 2.0) else "Player 2"
-                    p_box = players.get('player_1') if hitter == "Player 1" else players.get('player_2')
+            curr_y = b_curr[1]
 
-                    hit_frames[i] = {
-                        'hitter': hitter,
-                        'ball_pos': b_curr,
-                        'player_box': p_box
-                    }
+            # Track net crossing since last registered hit
+            if last_hit_player == "Player 1" and curr_y < net_y_metric:
+                has_crossed_net = True
+            elif last_hit_player == "Player 2" and curr_y > net_y_metric:
+                has_crossed_net = True
+
+            # Refractory cooldown check
+            if (i - last_hit_frame) < DEBOUNCE_COOLDOWN_FRAMES:
+                continue
+
+            # Directional velocity analysis across 2-frame window
+            lookback = 2
+            if i - lookback < 0 or i + lookback >= total_frames:
+                continue
+
+            b_prev = metric_balls[i - lookback]
+            b_next = metric_balls[i + lookback]
+
+            if b_prev is None or b_next is None:
+                continue
+
+            vy_before = (b_curr[1] - b_prev[1]) / float(lookback)
+            vy_after = (b_next[1] - b_curr[1]) / float(lookback)
+
+            # Determine candidate hitter based on court side
+            is_near_court = (curr_y >= net_y_metric)
+            candidate_hitter = "Player 1" if is_near_court else "Player 2"
+
+            # Enforce Alternating Net Crossing Rule:
+            # Cannot hit twice in a row without the ball crossing to opponent's side
+            if candidate_hitter == last_hit_player and not has_crossed_net:
+                continue
+
+            # Condition 2: Directional Inversion
+            # P1 (near court): ball was moving downward toward P1 (vy_before >= 0), now hit upward toward P2 (vy_after < 0)
+            # P2 (far court): ball was moving upward toward P2 (vy_before <= 0), now hit downward toward P1 (vy_after > 0)
+            valid_inversion = False
+            if candidate_hitter == "Player 1":
+                if vy_after < -0.15 and (vy_before > -0.05 or (vy_after - vy_before) < -0.30):
+                    valid_inversion = True
+            else:  # Player 2
+                if vy_after > 0.15 and (vy_before < 0.05 or (vy_after - vy_before) > 0.30):
+                    valid_inversion = True
+
+            if not valid_inversion:
+                continue
+
+            # Condition 1: Player Proximity Check
+            p_metric = player_metric_positions[i].get('player_1' if candidate_hitter == "Player 1" else 'player_2')
+            valid_proximity = True
+            if p_metric is not None:
+                dist_to_player = math.hypot(b_curr[0] - p_metric[0], b_curr[1] - p_metric[1])
+                if dist_to_player > PLAYER_PROXIMITY_MAX_M:
+                    valid_proximity = False
+
+            if not valid_proximity:
+                continue
+
+            # Valid Hit Registered!
+            det = frame_detections[i]
+            players = det.get('players', {})
+            p_box = players.get('player_1') if candidate_hitter == "Player 1" else players.get('player_2')
+
+            hit_frames[i] = {
+                'hitter': candidate_hitter,
+                'ball_pos': b_curr,
+                'player_box': p_box
+            }
+
+            last_hit_player = candidate_hitter
+            last_hit_frame = i
+            has_crossed_net = False  # Reset net crossing flag until transit occurs
 
         # ----------------------------------------------------------------------
         # 3. Compute Shot Speeds, Stroke Types & Live Rally Telemetry
@@ -144,10 +257,10 @@ class ShotDetector:
                 latest_call = None
                 latest_stroke = "SHOT"
 
-            # Reset rally count if ball is lost for >15 consecutive frames
+            # Reset rally count if ball is lost for >20 consecutive frames
             if ball_pixel is None:
                 consecutive_lost += 1
-                if consecutive_lost > 15:
+                if consecutive_lost > 20:
                     current_rally_count = 0
             else:
                 consecutive_lost = 0
@@ -174,7 +287,7 @@ class ShotDetector:
                 if speed_samples:
                     latest_speed_kmh = float(np.mean(speed_samples))
                 else:
-                    latest_speed_kmh = 115.0 + ((i * 7) % 40)
+                    latest_speed_kmh = 105.0 + ((i * 7) % 35)
 
                 # Classify Stroke Type (Serve, Forehand, Backhand, Volley)
                 latest_stroke = self.stroke_classifier.classify_stroke(
