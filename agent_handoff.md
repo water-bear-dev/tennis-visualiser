@@ -130,11 +130,17 @@ tennis-visualiser/
 2. **Ball Detection Resolution & Sensitivity**:
    - `BALL_IMGSZ = 1280`: Required to prevent sub-pixel downsampling of small, fast-moving tennis balls.
    - `BALL_CONF_THRESHOLD = 0.08`: Sensitive floor to detect motion-blurred balls.
-3. **Player Identity Attribution**:
-   - `PlayerTracker` splits candidates across the net horizon (`net_y_ratio = 0.50`):
-     - **Player 1**: Near/bottom court ($Y \ge \text{net}$).
-     - **Player 2**: Far/top court ($Y < \text{net}$).
-4. **Trajectory Interpolation Safety Guardrails**:
+3. **Player Identity & Spatial Partitioning Invariants (`src/trackers/player_tracker.py`)**:
+   - `PlayerTracker` strictly partitions candidates across the net horizon (`net_y_ratio = 0.50`):
+     - **Player 1**: Strictly near/bottom court ($Y_{\text{feet}} > \text{net}$).
+     - **Player 2**: Strictly far/top court ($Y_{\text{feet}} \le \text{net}$).
+   - **Single Player Per Half**: At most 1 player is assigned per court half.
+   - **IoU & Centroid Matching**: Tracks bounding boxes across frames via combined cost ($\text{dist} - 80\times\text{IoU} - 15\times\text{conf}$) to eliminate ID flipping.
+4. **Hit-Validation State Machine & Alternating Net Crossing (`src/analysis/shot_detector.py`)**:
+   - **Trajectory Smoothing**: 5-frame moving average across metric ball $(X_m, Y_m)$ coordinates.
+   - **Alternating Net Crossing**: The ball must cross $Y_{\text{net}} = 11.885\text{m}$ before the other player can register a hit. Consecutive hits on the same side are blocked.
+   - **3-Factor Hit Validation**: Requires player proximity ($\le 3.8\text{m}$), $V_y$ directional inversion, and a **25-frame lockout cooldown** (~0.8–1.0s).
+5. **Trajectory Interpolation Safety Guardrails**:
    - `MAX_MISSING_FRAMES = 8`: Ball gaps larger than 8 frames are left as `None` to prevent distortion.
    - `MAX_BALL_SPEED_PIXELS = 220`: Kinematic jump filter rejects implausible cross-frame displacements.
    - `SCENE_CUT_THRESHOLD = 0.60`: 2D HSV histogram correlation resets tracking state across camera cuts.
@@ -148,13 +154,19 @@ Always activate the virtual environment first:
 source venv/bin/activate
 ```
 
-### 1. Run Single-Match Pipeline
+### 1. Run Automated Unit Tests
+```bash
+python tests/test_trackers.py
+```
+*Executes unit tests verifying court-half spatial partitioning, single-player-per-half constraints, IoU tracking association, trajectory smoothing, and the alternating net crossing hit state machine.*
+
+### 2. Run Single-Match Pipeline
 ```bash
 python main.py
 ```
 *Processes `data/inputs/input.mp4` and exports annotated video to `data/outputs/output.mp4`, telemetry to `data/analysis/match_summary.json`, and reports to `data/analysis/match_report.html`.*
 
-### 2. Launch Interactive Web Dashboard
+### 3. Launch Interactive Web Dashboard
 ```bash
 streamlit run app.py
 ```

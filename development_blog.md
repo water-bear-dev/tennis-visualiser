@@ -182,3 +182,24 @@ In Phase 8, we bridged traditional deep learning computer vision (YOLOv8 + OpenC
 4. **Smart Video Triage & Rally Segmentation (`training/video_triage.py`)**:
    - Deployed **Moondream** to sample raw match video and classify frames into live rallies vs. non-play breaks and replays, ensuring frame extraction focuses strictly on active points.
 
+---
+
+## 📅 Entry 15: Tracking Invariants & Hit Validation State Machine Fixes
+*Date: Tracking & Analytics Reliability Milestone*
+
+### Eliminating Identity Swaps & Wild Rally Overcounting
+During real-match video stress-testing, we addressed two critical edge cases in core tracking and event detection:
+
+1. **Player Tracking Court-Half Partitioning & IoU Association (`src/trackers/player_tracker.py`)**:
+   - **Court-Half Partitioning**: Restricted Player 1 strictly to the near court half ($Y_{\text{feet}} > Y_{\text{net}}$) and Player 2 strictly to the far court half ($Y_{\text{feet}} \le Y_{\text{net}}$).
+   - **Single Player Per Half Guarantee**: Enforced that at most one candidate detection is assigned per court half, eliminating mid-court phantom boxes and double-assignments on the same player.
+   - **Centroid & IoU Association**: Implemented a combined association cost metric ($\text{dist} - 80\times\text{IoU} - 15\times\text{conf}$) relative to previous frame boxes to maintain persistent player identities during rapid lateral baseline sprints.
+
+2. **Hit-Validation State Machine & Trajectory Smoothing (`src/analysis/shot_detector.py`)**:
+   - **5-Frame Trajectory Smoothing**: Implemented moving average filtering across metric ball coordinates $(X_m, Y_m)$ via `_smooth_trajectory()`, eliminating high-frequency camera and tracking jitter.
+   - **Alternating Net Crossing Rule**: Enforced that after Player 1 hits, the ball must physically cross the net line ($Y_{\text{net}} = 11.885\text{m}$) before Player 2 can register a hit (and vice versa), eliminating consecutive phantom hits on the same side.
+   - **3-Factor Hit Validation**: Registered hits only when spatial player proximity ($\le 3.8\text{m}$), directional velocity inversion ($V_y$), and a **25-frame refractory cooldown** (~0.8–1.0s) are simultaneously satisfied.
+3. **Automated Unit Testing Suite (`tests/test_trackers.py`)**:
+   - Added automated tests verifying court-half partitioning, IoU tracking association, and exact rally hit counts under simulated trajectory jitter.
+
+

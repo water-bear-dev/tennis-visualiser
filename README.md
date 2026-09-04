@@ -9,7 +9,8 @@ Inspired by and building upon the architecture of [`abdullahtarek/tennis_analysi
 ## 🌟 Comprehensive Feature Suite
 
 ### 1. Multi-Object Tracking & Ball Trajectory
-- **Persistent 2-Player Re-ID (`PlayerTracker`)**: Spatially partitions court players across the net line into **Player 1** (near court) and **Player 2** (far court), filtering out referees and ball boys.
+- **Court-Half Net Partitioned Re-ID (`PlayerTracker`)**: Spatially partitions detections across the net horizon line ($Y_{\text{net}}$) strictly into **Player 1** (near/bottom court) and **Player 2** (far/top court). Enforces a single-player-per-half constraint to eliminate duplicate IDs and phantom mid-court boxes.
+- **Centroid & IoU Proximity Association**: Matches bounding boxes frame-to-frame using a fused cost function ($\text{dist} - 80\times\text{IoU} - 15\times\text{conf}$) to prevent identity flipping during rapid lateral movements.
 - **Dedicated High-Resolution Ball Detector (`TennisBallDetector`)**: Multi-scale 1280px inference to detect small, motion-blurred tennis balls.
 - **Missing Frame Interpolation**: Segmented linear interpolation bounded by `MAX_MISSING_FRAMES = 8` to reconstruct occluded ball paths.
 - **4 Tracking Safety Guardrails**: Velocity/distance jump filters ($220\text{px}$), track gap resets, strict court ROI polygon masking, and HSV 2D histogram scene cut detection.
@@ -20,7 +21,9 @@ Inspired by and building upon the architecture of [`abdullahtarek/tennis_analysi
 - **2D Mini-Court Bird's-Eye Radar**: Real-time overlay in the top-right corner tracking Player 1, Player 2, and ball trajectory trails.
 
 ### 3. Shot Analytics & Biomechanics
-- **Hit Event Detection**: Inflection point analysis ($\Delta v_y$) attributing shots to Player 1 or Player 2 with adaptive debouncing.
+- **Hit-Validation State Machine (`ShotDetector`)**: Evaluates player hit events using 3 simultaneous conditions: player spatial proximity ($\le 3.8\text{m}$), directional vertical velocity inversion ($V_y$), and a mandatory **25-frame refractory cooldown** (~0.8–1.0s).
+- **Trajectory Smoothing**: Applies a 5-frame moving average across metric ball positions to eliminate micro-fluctuations and trajectory jitter.
+- **Alternating Net Crossing Rule**: Enforces that shots can only be credited if the ball physically traverses the net line ($Y_{\text{net}} = 11.885\text{m}$) to the opposing court half, preventing consecutive phantom hits on the same side.
 - **Physical Ball Velocity ($\text{km/h}$)**: Real-world metric speed measurement over frame deltas.
 - **Automated In/Out Line Calling**: Evaluates ball contact against official ITF singles boundary lines.
 - **Stroke Classification (`StrokeClassifier`)**: Classifies shots into **Serve**, **Forehand**, **Backhand**, or **Volley/Smash**.
@@ -222,6 +225,14 @@ Features 4 dedicated interactive tabs:
 
 ---
 
+### 7. Run Automated Unit Tests
+```bash
+python tests/test_trackers.py
+```
+*Verifies court-half spatial partitioning, IoU/centroid player tracking, and the 4-shot alternating net crossing state machine.*
+
+---
+
 ## 📁 Repository Structure
 
 ```
@@ -230,6 +241,8 @@ tennis-visualiser/
 │   ├── inputs/                    # Raw input videos (data/inputs/*.mp4)
 │   ├── outputs/                   # Processed annotated videos
 │   └── analysis/                  # Post-match JSON/HTML reports & heatmaps
+├── tests/
+│   └── test_trackers.py           # Unit test suite for PlayerTracker & ShotDetector
 ├── training/
 │   ├── extract_frames.py          # Multi-video frame harvester
 │   ├── auto_label.py              # Semi-supervised pseudo-labeling engine
@@ -264,7 +277,7 @@ tennis-visualiser/
 ├── app.py                         # Multi-tab Streamlit Web Dashboard
 ├── batch_process.py               # Batch executor for multi-match queues
 ├── features.md                    # 8-Phase Roadmap & Feature Matrix
-├── development_blog.md            # Technical engineering journal (14 entries)
+├── development_blog.md            # Technical engineering journal (15 entries)
 ├── main.py                        # Single-match pipeline entrypoint
 ├── requirements.txt               # Dependencies
 └── .gitignore
