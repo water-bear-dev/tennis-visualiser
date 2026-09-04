@@ -78,8 +78,24 @@ def process_single_video(video_path: str, model) -> dict:
     player_analytics = PlayerAnalytics(mini_court=mini_court, fps=fps)
     kinetics_per_frame, p1_hm, p2_hm = player_analytics.analyze_player_kinetics(frame_detections)
 
+    # Phase 5 Delivery: Generate JSON summary & reports
     report_generator = MatchReportGenerator(fps=fps)
     report_generator.generate_report(frame_detections, telemetry_per_frame, kinetics_per_frame)
+
+    # Pass 2: Render Annotated Broadcast Video with HUD & 2D Mini-Court Radar
+    render_annotated_video(
+        cap=cap,
+        frame_detections=frame_detections,
+        interpolated_balls=interpolated_balls,
+        roi_polygon_pixels=roi_polygon_pixels,
+        mini_court=mini_court,
+        telemetry_per_frame=telemetry_per_frame,
+        kinetics_per_frame=kinetics_per_frame,
+        width=width,
+        height=height,
+        fps=fps,
+        output_path=out_video_path
+    )
 
     # Move/save summary under match-specific name
     if os.path.exists(os.path.join(ANALYSIS_DIR, 'match_summary.json')):

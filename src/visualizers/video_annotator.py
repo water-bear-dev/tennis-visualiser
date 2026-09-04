@@ -145,7 +145,8 @@ def overlay_radar_on_frame(frame: np.ndarray, radar_img: np.ndarray, offset_x: i
 
 def render_annotated_video(cap: cv2.VideoCapture, frame_detections: list[dict], interpolated_balls: list[tuple | None], 
                            roi_polygon_pixels: np.ndarray, mini_court: MiniCourt, telemetry_per_frame: list[dict],
-                           kinetics_per_frame: list[dict], width: int, height: int, fps: int):
+                           kinetics_per_frame: list[dict], width: int, height: int, fps: int,
+                           output_path: str = OUTPUT_PATH):
     """
     Pass 2: Renders court ROI polygon, persistent player boxes, ball marker,
     dynamic alpha motion trails, 2D Mini-Court radar, and the broadcast kinetics telemetry HUD.
@@ -161,13 +162,14 @@ def render_annotated_video(cap: cv2.VideoCapture, frame_detections: list[dict], 
         width (int): Video frame width.
         height (int): Video frame height.
         fps (int): Video frame rate.
+        output_path (str): Destination file path for rendered annotated video (default OUTPUT_PATH).
     """
-    print("\n--- Pass 2: Rendering Annotations, Kinetics HUD & 2D Mini-Court Radar ---")
+    print(f"\n--- Pass 2: Rendering Annotations to '{output_path}' ---")
     
     # Rewind video capture to frame 0 for Pass 2 rendering
     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(OUTPUT_PATH, fourcc, fps, (width, height))
+    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
     trajectory = deque(maxlen=TRAJECTORY_MAX_POINTS)
     frame_idx = 0

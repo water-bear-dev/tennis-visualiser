@@ -125,21 +125,42 @@ This processes all matches sequentially and outputs:
 
 ### 4. Training a Custom Model on Multiple Videos
 
-#### Step A: Extract frames from all videos in `data/inputs/`
+#### Step A: Extract frames from all videos (`training/extract_frames.py`)
 ```bash
-python training/extract_frames.py --sample_rate 5 --max_frames 400
+python training/extract_frames.py --input_dir data/inputs --output_dir training/dataset/images --sample_rate 5 --max_frames 400
 ```
+**Parameters**:
+- `--input_dir` *(str, default: `data/inputs`)*: Path to the directory containing raw `.mp4` match videos to harvest frames from.
+- `--output_dir` *(str, default: `training/dataset/images`)*: Target output directory where extracted `.jpg` image frames will be saved.
+- `--sample_rate` *(int, default: `5`)*: Frame extraction stride/interval. E.g., `5` extracts every 5th frame (~6 fps from a 30fps video), preventing adjacent frame redundancy.
+- `--max_frames` *(int, default: `400`)*: Maximum number of sampled frames to harvest per input video to prevent dataset class imbalance across long and short matches.
 
-#### Step B: Auto-label extracted frames & create dataset splits
+---
+
+#### Step B: Auto-label extracted frames & create dataset splits (`training/auto_label.py`)
 ```bash
 python training/auto_label.py
 ```
+**Process**:
+- Executes high-resolution ($1280\text{px}$) baseline inference with court ROI polygon filtering.
+- Converts confirmed ball coordinates into normalized YOLO format labels (`0 cx cy w h`).
+- Generates empty negative label files for background non-ball frames to teach the network false-positive resistance.
+- Splits data into 80% training (`images/train/`, `labels/train/`) and 20% validation (`images/val/`, `labels/val/`), and generates `data.yaml`.
 
-#### Step C: Fine-tune custom YOLOv8 ball detector
+---
+
+#### Step C: Fine-tune custom YOLOv8 ball detector (`training/train_ball_detector.py`)
 ```bash
-python training/train_ball_detector.py --epochs 25 --batch 16 --imgsz 640
+python training/train_ball_detector.py --data training/dataset/data.yaml --epochs 25 --batch 16 --base yolov8n.pt --imgsz 640
 ```
-*When training finishes, the best checkpoint is automatically deployed as `best_tennis.pt` in the project root and used by the analytics pipeline.*
+**Parameters**:
+- `--data` *(str, default: `training/dataset/data.yaml`)*: Path to the YOLO dataset YAML configuration file defining train/val splits and class names.
+- `--epochs` *(int, default: `50`)*: Total number of full training iterations over the dataset.
+- `--batch` *(int, default: `8`)*: Batch size (number of images processed per forward/backward gradient step). Lower to `4` or `2` if running on low VRAM/memory.
+- `--base` *(str, default: `yolov8n.pt`)*: Pre-trained YOLOv8 base model checkpoint to fine-tune from (e.g., `yolov8n.pt`, `yolov8s.pt`, `yolov8m.pt`, `yolov8x.pt`).
+- `--imgsz` *(int, default: `1280`)*: Image resolution (in pixels) for training and validation. E.g., `640` for faster iterations or `1280` for high-resolution sub-pixel ball accuracy.
+
+*When training finishes, the best checkpoint (`runs/detect/tennis_ball_detector/weights/best.pt`) is automatically deployed as `best_tennis.pt` in the project root and utilized immediately by the analytics pipeline.*
 
 ---
 
@@ -147,27 +168,45 @@ python training/train_ball_detector.py --epochs 25 --batch 16 --imgsz 640
 
 Ensure local Ollama is running (`ollama serve`), then run:
 
-#### AI Training Diagnostics (Powered by Qwen 2.5)
+#### AI Training Diagnostics (`training/train_diagnostics.py`)
 ```bash
-python training/train_diagnostics.py
+python training/train_diagnostics.py --csv runs/detect/tennis_ball_detector/results.csv --model qwen2.5:7b-instruct
 ```
-*Outputs diagnostic insights to `runs/detect/training_diagnostic_report.md`.*
+**Parameters**:
+- `--csv` *(str, default: `runs/detect/tennis_ball_detector/results.csv`)*: Path to the YOLO training results CSV containing epoch loss metrics (Box, Class, DFL) and validation accuracy ($\text{mAP}_{50}$, $\text{mAP}_{50-95}$).
+- `--model` *(str, default: `qwen2.5:7b-instruct`)*: Local Ollama language model name used to analyze loss curves and generate the diagnostic report.
+- *Output*: Saves comprehensive markdown assessment to `runs/detect/training_diagnostic_report.md`.
 
-#### Pro Tactical Scouting & Coaching Report (Powered by Qwen 2.5)
-```bash
-python src/analysis/llm_scout.py
-```
-*Outputs narrative coaching report to `data/analysis/tactical_scouting_report.md`.*
+---
 
-#### VLM Active Label Verification (Powered by Moondream)
+#### Pro Tactical Scouting & Coaching Report (`src/analysis/llm_scout.py`)
 ```bash
-python training/vlm_verifier.py
+python src/analysis/llm_scout.py --summary data/analysis/match_summary.json --model qwen2.5:7b-instruct
 ```
+**Parameters**:
+- `--summary` *(str, default: `data/analysis/match_summary.json`)*: Path to the structured JSON telemetry summary file generated from match analysis.
+- `--model` *(str, default: `qwen2.5:7b-instruct`)*: Local Ollama language model name used to synthesize the narrative tactical coaching breakdown.
+- *Output*: Saves executive coaching report to `data/analysis/tactical_scouting_report.md`.
 
-#### Smart Video Triage & Rally Segmentation (Powered by Moondream)
+---
+
+#### VLM Active Label Verification (`training/vlm_verifier.py`)
 ```bash
-python training/video_triage.py --video data/inputs/input_grass.mp4
+python training/vlm_verifier.py --dataset training/dataset --model moondream
 ```
+**Parameters**:
+- `--dataset` *(str, default: `training/dataset`)*: Root folder path of the training dataset containing `images/train/` and `labels/train/`.
+- `--model` *(str, default: `moondream`)*: Local Ollama vision-language model name used to visually inspect cropped ball candidate boxes and prune noisy false positives.
+
+---
+
+#### Smart Video Triage & Rally Segmentation (`training/video_triage.py`)
+```bash
+python training/video_triage.py --video data/inputs/input_grass.mp4 --model moondream
+```
+**Parameters**:
+- `--video` *(str, default: `data/inputs/input_grass.mp4`)*: File path to the raw broadcast match video to triage and segment.
+- `--model` *(str, default: `moondream`)*: Local Ollama vision-language model name used to classify frames into active live rallies vs. non-play segments (crowd shots, replays, breaks).
 
 ---
 
